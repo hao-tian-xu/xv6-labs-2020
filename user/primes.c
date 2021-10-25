@@ -1,5 +1,5 @@
 //
-// Created by Haotian Xu on 10/23/21.
+// Created by Haotian Xu on 10/25/21.
 //
 #include "kernel/types.h"
 #include "kernel/stat.h"
@@ -37,17 +37,17 @@ _primes(int p[2])
     int num;
     int prime;
 
-    pipe(sub_p);
-
     close(p[1]);
-    if (read(p[0], &prime, INT_BYTE) == 0) exit(0);
+    if (read(p[0], &prime, INT_BYTE) == 0) {
+        close(p[0]);
+        exit(0);
+    }
     else{
+        pipe(sub_p);
         printf("prime %d\n", prime);
         if (fork() == 0){
             close(p[0]);
             _primes(sub_p);
-            close(sub_p[0]);
-            close(sub_p[1]);
         } else {
             close(sub_p[0]);
             while (read(p[0], &num, INT_BYTE) != 0) {
