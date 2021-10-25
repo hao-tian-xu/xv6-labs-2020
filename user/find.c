@@ -13,10 +13,12 @@ char* pathFileName(char *path);
 int
 main(int argc, char *argv[])
 {
+    // must have 3 arguments
     if (argc != 3) {
         printf("find error\n");
         exit(1);
     }
+    // recursion function
     _find(argv[1], argv[2]);
     exit(0);
 }
@@ -28,12 +30,12 @@ _find(char *path, char *fileName)
     int fd;
     struct dirent de;
     struct stat st;
-
+    // fd: file descriptor
     if ((fd = open(path, 0)) < 0) {
         fprintf(2, "ls: cannot open %s\n", path);
         return;
     }
-
+    // st: statistics struct
     if (fstat(fd, &st) < 0) {
         fprintf(2, "ls: cannot stat %s\n", path);
         close(fd);
@@ -49,16 +51,17 @@ _find(char *path, char *fileName)
                 printf("ls: path too long\n");
                 break;
             }
+            // buf: full path
             strcpy(buf, path);
             p = buf + strlen(buf);
             *p++ = '/';
-
+            // traverse (every size of de struct)
             while (read(fd, &de, sizeof(de)) == sizeof(de)) {
                 if(de.inum == 0 || strcmp(de.name, "..") == 0 || strcmp(de.name, ".") == 0) continue;
-
+                // buf: full path with sub dir
                 memmove(p, de.name, DIRSIZ);
                 p[DIRSIZ] = 0;
-
+                // recursion
                 _find(buf, fileName);
             }
             break;
@@ -71,10 +74,8 @@ char*
 pathFileName(char *path)
 {
     char *p;
-
-    // Find first character after last slash.
+    // find first character after last slash.
     for(p=path+strlen(path); p >= path && *p != '/'; p--) ;
     p++;
-
     return p;
 }
