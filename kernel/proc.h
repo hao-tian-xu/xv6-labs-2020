@@ -104,5 +104,6 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
 
-  int trace;
+  int trace_mask;              // Added by Haotian Xu on 10/29/21.
+                               // An integer "mask", whose bits specify which system calls to trace
 };

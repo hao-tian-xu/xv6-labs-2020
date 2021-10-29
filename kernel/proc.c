@@ -277,7 +277,7 @@ fork(void)
 
   np->parent = p;
 
-  np->trace = p->trace;
+  np->trace_mask = p->trace_mask;   // Added by Haotian Xu on 10/28/21.
 
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
@@ -694,4 +694,18 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+
+// the number of processes whose state is not UNUSED
+// Created by Haotian Xu on 10/29/21.
+int
+proc_number(void)
+{
+    int proc_number = 0;
+    struct proc *p;
+
+    for (p = proc; p < &proc[NPROC]; p++)
+        if (p->state != UNUSED && p->state)
+            proc_number++;
+    return proc_number;
 }

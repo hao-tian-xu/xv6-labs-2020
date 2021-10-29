@@ -6,6 +6,7 @@
 #include "memlayout.h"
 #include "spinlock.h"
 #include "proc.h"
+#include "sysinfo.h"
 
 uint64
 sys_exit(void)
@@ -96,12 +97,31 @@ sys_uptime(void)
   return xticks;
 }
 
+// Save trace system call argument in myproc()
+// Created by Haotian Xu on 10/28/21.
 uint64
 sys_trace(void)
 {
     int n;
     if (argint(0, &n) < 0)
         return -1;
-    myproc()->trace = n;
+    myproc()->trace_mask = n;
+    return 0;
+}
+
+// Collects information about the running system:
+// the number of bytes of free memory and the number of processes
+// Created by Haotian Xu on 10/29/21.
+uint64
+sys_sysinfo(void){
+    uint64 sysinfo_user;
+    struct sysinfo sysinfo;
+
+    sysinfo.freemem = mem_amount();
+    sysinfo.nproc = proc_number();
+    if (argaddr(0, &sysinfo_user) < 0)
+        return -1;
+    if (copyout(myproc()->pagetable, sysinfo_user, (char *)&sysinfo, sizeof(sysinfo)) < 0)
+        return -1;
     return 0;
 }

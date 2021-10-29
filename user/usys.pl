@@ -14,7 +14,7 @@ sub entry {
     print " ecall\n";
     print " ret\n";
 }
-	
+
 entry("fork");
 entry("exit");
 entry("wait");
@@ -36,4 +36,5 @@ entry("getpid");
 entry("sbrk");
 entry("sleep");
 entry("uptime");
-entry("trace");
+entry("trace");     # Added by Haotian Xu on 10/28/21.
+entry("sysinfo");   # Added by Haotian Xu on 10/29/21.
