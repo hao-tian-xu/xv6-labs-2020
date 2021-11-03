@@ -53,7 +53,7 @@ void
 kvminithart()
 {
   w_satp(MAKE_SATP(kernel_pagetable));
-  sfence_vma();
+  sfence_vma();                             // memo: flush the TLB after reloading the satp register
 }
 
 // Return the address of the PTE in page table pagetable
@@ -75,9 +75,9 @@ walk(pagetable_t pagetable, uint64 va, int alloc)
     panic("walk");
 
   for(int level = 2; level > 0; level--) {
-    pte_t *pte = &pagetable[PX(level, va)];
-    if(*pte & PTE_V) {
-      pagetable = (pagetable_t)PTE2PA(*pte);
+    pte_t *pte = &pagetable[PX(level, va)];             // memo: extract the 9-bit PT indices from VA and find the corresponding PTE
+    if(*pte & PTE_V) {                                  // memo: is PTE valid
+      pagetable = (pagetable_t)PTE2PA(*pte);            // memo: if so, find the corresponding PA
     } else {
       if(!alloc || (pagetable = (pde_t*)kalloc()) == 0)
         return 0;
@@ -85,7 +85,7 @@ walk(pagetable_t pagetable, uint64 va, int alloc)
       *pte = PA2PTE(pagetable) | PTE_V;
     }
   }
-  return &pagetable[PX(0, va)];
+  return &pagetable[PX(0, va)];                         // memo: find PTE in the last PT
 }
 
 // Look up a virtual address, return the physical address,
@@ -114,6 +114,7 @@ walkaddr(pagetable_t pagetable, uint64 va)
 // add a mapping to the kernel page table.
 // only used when booting.
 // does not flush TLB or enable paging.
+// memo: perm - permission bits
 void
 kvmmap(uint64 va, uint64 pa, uint64 sz, int perm)
 {
@@ -145,21 +146,22 @@ kvmpa(uint64 va)
 // physical addresses starting at pa. va and size might not
 // be page-aligned. Returns 0 on success, -1 if walk() couldn't
 // allocate a needed page-table page.
+// memo: perm - permission bits
 int
 mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
 {
   uint64 a, last;
   pte_t *pte;
 
-  a = PGROUNDDOWN(va);
-  last = PGROUNDDOWN(va + size - 1);
+  a = PGROUNDDOWN(va);                      // memo: 1st page
+  last = PGROUNDDOWN(va + size - 1);        // memo: last page
   for(;;){
-    if((pte = walk(pagetable, a, 1)) == 0)
+    if((pte = walk(pagetable, a, 1)) == 0)  // memo: if allocation failed
       return -1;
-    if(*pte & PTE_V)
+    if(*pte & PTE_V)                        // memo: if already valid
       panic("remap");
-    *pte = PA2PTE(pa) | perm | PTE_V;
-    if(a == last)
+    *pte = PA2PTE(pa) | perm | PTE_V;       // memo: permissions and valid bits
+    if(a == last)                           // memo: loop end
       break;
     a += PGSIZE;
     pa += PGSIZE;

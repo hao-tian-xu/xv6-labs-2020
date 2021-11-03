@@ -25,20 +25,20 @@ extern char trampoline[]; // trampoline.S
 void
 procinit(void)
 {
-  struct proc *p;
+  struct proc *p;                                     // memo: pointer to traverse proc[NPROC]
   
   initlock(&pid_lock, "nextpid");
-  for(p = proc; p < &proc[NPROC]; p++) {
+  for(p = proc; p < &proc[NPROC]; p++) {              // memo: NPROC(64) proc table entries as kernel stacks
       initlock(&p->lock, "proc");
 
       // Allocate a page for the process's kernel stack.
       // Map it high in memory, followed by an invalid
       // guard page.
-      char *pa = kalloc();
+      char *pa = kalloc();                            // memo: pa
       if(pa == 0)
         panic("kalloc");
-      uint64 va = KSTACK((int) (p - proc));
-      kvmmap(va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
+      uint64 va = KSTACK((int) (p - proc));           // memo: va ~ 2 pages per process below TRAMPOLINE, 1 for invalid stack-guard page
+      kvmmap(va, (uint64)pa, PGSIZE, PTE_R | PTE_W);  // memo: map pa to va
       p->kstack = va;
   }
   kvminithart();
@@ -701,11 +701,11 @@ procdump(void)
 int
 proc_number(void)
 {
-    int proc_number = 0;
-    struct proc *p;
+  int proc_number = 0;
+  struct proc *p;
 
-    for (p = proc; p < &proc[NPROC]; p++)
-        if (p->state != UNUSED && p->state)
-            proc_number++;
-    return proc_number;
+  for (p = proc; p < &proc[NPROC]; p++)
+    if (p->state != UNUSED && p->state)
+      proc_number++;
+  return proc_number;
 }

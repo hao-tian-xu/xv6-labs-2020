@@ -14,13 +14,13 @@ void freerange(void *pa_start, void *pa_end);
 extern char end[]; // first address after kernel.
                    // defined by kernel.ld.
 
-struct run {
+struct run {              // memo: a linked list
   struct run *next;
 };
 
 struct {
   struct spinlock lock;
-  struct run *freelist;
+  struct run *freelist;   // memo: free list as a linked list
 } kmem;
 
 void
@@ -30,13 +30,14 @@ kinit()
   freerange(end, (void*)PHYSTOP);
 }
 
+// memo: free a range of memory pages
 void
 freerange(void *pa_start, void *pa_end)
 {
   char *p;
-  p = (char*)PGROUNDUP((uint64)pa_start);
+  p = (char*)PGROUNDUP((uint64)pa_start);   // memo: roundup to align with page
   for(; p + PGSIZE <= (char*)pa_end; p += PGSIZE)
-    kfree(p);
+    kfree(p);                               // memo: per-page call to kfree
 }
 
 // Free the page of physical memory pointed at by v,
@@ -54,7 +55,7 @@ kfree(void *pa)
   // Fill with junk to catch dangling refs.
   memset(pa, 1, PGSIZE);
 
-  r = (struct run*)pa;
+  r = (struct run*)pa;      // memo: prepends the page to the free list kmem.freelist
 
   acquire(&kmem.lock);
   r->next = kmem.freelist;

@@ -1,5 +1,6 @@
 #include "types.h"
 
+// memo: set n bits to int c starting at *dst
 void*
 memset(void *dst, int c, uint n)
 {
