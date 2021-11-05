@@ -440,3 +440,115 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
     return -1;
   }
 }
+
+// Created by Haotian Xu on 11/4/21.
+static void _vmprint(pagetable_t, int);
+
+// Created by Haotian Xu on 11/4/21.
+void
+vmprint(pagetable_t pagetable)
+{
+  printf("page table %p\n", pagetable);
+  _vmprint(pagetable, 0);
+}
+
+// Created by Haotian Xu on 11/4/21.
+static char* level2prefix[3] = {
+    [0] = "..",
+    [1] = ".. ..",
+    [2] = ".. .. ..",
+};
+
+// Created by Haotian Xu on 11/4/21.
+static void
+_vmprint(pagetable_t pagetable, int level)
+{
+  for(int i = 0; i < 512; i++){
+    pte_t pte = pagetable[i];
+    if (pte & PTE_V) {
+      uint64 pa = PTE2PA(pte);
+      printf("%s%d: pte %p pa %p\n", level2prefix[level], i, pte, pa);
+      if (level < 2) _vmprint((pagetable_t)pa, level+1);
+    }
+  }
+}
+
+// Created by Haotian Xu on 11/5/21.
+// add a mapping to the process' kernel page table.
+void
+proc_kvmmap(pagetable_t proc_kernel_pagetable, uint64 va, uint64 pa, uint64 sz, int perm)
+{
+  if(mappages(proc_kernel_pagetable, va, sz, pa, perm) != 0)
+    panic("kvmmap");
+}
+
+// Created by Haotian Xu on 11/5/21.
+pagetable_t
+proc_kvminit()
+{
+  // per process page table, see kvminit() for detail
+  pagetable_t proc_kernel_pagetable = (pagetable_t) kalloc();
+  memset(proc_kernel_pagetable, 0, PGSIZE);
+
+  proc_kvmmap(proc_kernel_pagetable, UART0, UART0, PGSIZE, PTE_R | PTE_W);
+  proc_kvmmap(proc_kernel_pagetable, VIRTIO0, VIRTIO0, PGSIZE, PTE_R | PTE_W);
+  proc_kvmmap(proc_kernel_pagetable, CLINT, CLINT, 0x10000, PTE_R | PTE_W);
+  proc_kvmmap(proc_kernel_pagetable, PLIC, PLIC, 0x400000, PTE_R | PTE_W);
+  proc_kvmmap(proc_kernel_pagetable, KERNBASE, KERNBASE, (uint64)etext - KERNBASE, PTE_R | PTE_X);
+  proc_kvmmap(proc_kernel_pagetable, (uint64)etext, (uint64)etext, PHYSTOP - (uint64)etext, PTE_R | PTE_W);
+  proc_kvmmap(proc_kernel_pagetable, TRAMPOLINE, (uint64)trampoline, PGSIZE, PTE_R | PTE_X);
+
+  return proc_kernel_pagetable;
+}
+
+// Created by Haotian Xu on 11/5/21.
+pagetable_t
+get_kernel_pagetable()
+{
+  return kernel_pagetable;
+}
+
+// Created by Haotian Xu on 11/5/21.
+// Recursively free page-table pages.
+// Keep the leaf physical memory pages.
+void
+proc_kernel_pagetable_freewalk(pagetable_t pagetable)
+{
+  // there are 2^9 = 512 PTEs in a page table.
+  for(int i = 0; i < 512; i++){
+    pte_t pte = pagetable[i];
+    if((pte & PTE_V) && (pte & (PTE_R|PTE_W|PTE_X)) == 0){
+      // this PTE points to a lower-level page table.
+      uint64 child = PTE2PA(pte);
+      proc_kernel_pagetable_freewalk((pagetable_t)child);
+      pagetable[i] = 0;
+    } else if(pte & PTE_V){
+      pagetable[i] = 0;
+    }
+  }
+  kfree((void*)pagetable);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

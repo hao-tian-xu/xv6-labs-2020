@@ -29,17 +29,18 @@ procinit(void)
   
   initlock(&pid_lock, "nextpid");
   for(p = proc; p < &proc[NPROC]; p++) {
-      initlock(&p->lock, "proc");
+    initlock(&p->lock, "proc");
 
-      // Allocate a page for the process's kernel stack.
-      // Map it high in memory, followed by an invalid
-      // guard page.
-      char *pa = kalloc();
-      if(pa == 0)
-        panic("kalloc");
-      uint64 va = KSTACK((int) (p - proc));
-      kvmmap(va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
-      p->kstack = va;
+    // memo: functionality is said to be moved to allocproc, but kvmpa would have a panic
+    // Allocate a page for the process's kernel stack.
+    // Map it high in memory, followed by an invalid
+    // guard page.
+    char *pa = kalloc();
+    if(pa == 0)
+      panic("kalloc");
+    uint64 va = KSTACK((int) (p - proc));
+    kvmmap(va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
+    p->kstack = va;
   }
   kvminithart();
 }
@@ -121,6 +122,16 @@ found:
     return 0;
   }
 
+  // Added by Haotian Xu on 11/4/21.
+  // A process kernel page table.
+  p->kernel_pagetable = proc_kvminit();
+
+  // Added by Haotian Xu on 11/4/21.
+  // Add current process's kernel stack to its kernel page table
+  uint64 va = KSTACK((int) (p - proc));
+  uint64 pa = kvmpa(va);
+  proc_kvmmap(p->kernel_pagetable, va, pa, PGSIZE, PTE_R | PTE_W);
+
   // Set up new context to start executing at forkret,
   // which returns to user space.
   memset(&p->context, 0, sizeof(p->context));
@@ -150,6 +161,12 @@ freeproc(struct proc *p)
   p->killed = 0;
   p->xstate = 0;
   p->state = UNUSED;
+
+  // Added by Haotian Xu on 11/5/21.
+  // free proc_kernel_pagetable
+  if(p->kernel_pagetable)
+    proc_kernel_pagetable_freewalk(p->kernel_pagetable);
+  p->kernel_pagetable = 0;
 }
 
 // Create a user page table for a given process,
@@ -460,6 +477,12 @@ scheduler(void)
   struct cpu *c = mycpu();
   
   c->proc = 0;
+
+  // Added by Haotian Xu on 11/5/21.
+  // set satp to kernel_pagetable
+  w_satp(MAKE_SATP(get_kernel_pagetable()));
+  sfence_vma();
+
   for(;;){
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
@@ -473,11 +496,22 @@ scheduler(void)
         // before jumping back to us.
         p->state = RUNNING;
         c->proc = p;
+
+        // Added by Haotian Xu on 11/5/21.
+        // set satp to proc_kernel_pagetable
+        w_satp(MAKE_SATP(p->kernel_pagetable));
+        sfence_vma();
+
         swtch(&c->context, &p->context);
 
         // Process is done running for now.
         // It should have changed its p->state before coming back.
         c->proc = 0;
+
+        // Added by Haotian Xu on 11/5/21.
+        // set satp to kernel_pagetable
+        w_satp(MAKE_SATP(get_kernel_pagetable()));
+        sfence_vma();
 
         found = 1;
       }
