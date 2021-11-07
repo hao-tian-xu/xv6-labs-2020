@@ -238,12 +238,12 @@ userinit(void)
   uvminit(p->pagetable, initcode, sizeof(initcode));
   p->sz = PGSIZE;
 
-/*  // Added by Haotian Xu on 11/5/21.
+  // Added by Haotian Xu on 11/5/21.
   // copy process' user page table to process' kernel page table
   if(proc_uvm2kvm(p->pagetable, p->kernel_pagetable, 0, p->sz) < 0){
     panic("userinit");
   }
-  dbprint("after userinit"); ptprint(p->kernel_pagetable);*/
+//  dbprint("after userinit"); ptprint(p->kernel_pagetable);
 
   // prepare for the very first "return" from kernel to user.
   p->trapframe->epc = 0;      // user program counter
@@ -271,7 +271,7 @@ growproc(int n)
 //  dbprint("before sbrk"); ptprint(p->kernel_pagetable);
   if(n > 0){
     if((newsz = uvmalloc(p->pagetable, sz, sz + n)) == 0
-//    || proc_uvm2kvm(p->pagetable, p->kernel_pagetable, sz, sz + n) < 0      // Added by Haotian Xu on 11/5/21.
+    || proc_uvm2kvm(p->pagetable, p->kernel_pagetable, sz, sz + n) < 0      // Added by Haotian Xu on 11/5/21.
     ){
       return -1;
     }
@@ -315,16 +315,6 @@ fork(void)
   }
   np->sz = p->sz;
 
-/*  // Added by Haotian Xu on 11/5/21.
-  // copy process' user page table to process' kernel page table
-//  dbprint("before fork"); ptprint(p->kernel_pagetable);
-  if(proc_uvm2kvm(np->pagetable, np->kernel_pagetable, 0, np->sz) < 0){
-    freeproc(np);
-    release(&np->lock);
-    return -1;
-  }
-//  dbprint("after fork"); ptprint(p->kernel_pagetable);*/
-
   np->parent = p;
 
   // copy saved user registers.
@@ -338,6 +328,16 @@ fork(void)
     if(p->ofile[i])
       np->ofile[i] = filedup(p->ofile[i]);
   np->cwd = idup(p->cwd);
+
+  // Added by Haotian Xu on 11/5/21.
+  // copy process' user page table to process' kernel page table
+//  dbprint("before fork"); ptprint(p->kernel_pagetable);
+  if(proc_uvm2kvm(np->pagetable, np->kernel_pagetable, 0, np->sz) < 0){
+    freeproc(np);
+    release(&np->lock);
+    return -1;
+  }
+//  dbprint("after fork"); ptprint(p->kernel_pagetable);
 
   safestrcpy(np->name, p->name, sizeof(p->name));
 

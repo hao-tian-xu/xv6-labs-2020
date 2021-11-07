@@ -379,7 +379,7 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 int
 copyin(pagetable_t pagetable, char *dst, uint64 srcva, uint64 len)
 {
-//  return copyin_new(pagetable, dst, srcva, len);
+  return copyin_new(pagetable, dst, srcva, len);
 
   // memo: replaced by copyin_new()
   uint64 n, va0, pa0;
@@ -408,7 +408,7 @@ copyin(pagetable_t pagetable, char *dst, uint64 srcva, uint64 len)
 int
 copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
 {
-//  return copyinstr_new(pagetable, dst, srcva, max);
+  return copyinstr_new(pagetable, dst, srcva, max);
 
   // memo: replaced by copyinstr_new()
   uint64 n, va0, pa0;
@@ -611,29 +611,26 @@ proc_uvm2kvm(pagetable_t u, pagetable_t k, uint64 start, uint64 end)
 // and then copy process' user page table to process' kernel page table
 // see uvmcopy() for detail, except that no alignment needed
 int
-proc_uvm2kvm(pagetable_t u, pagetable_t k, uint64 start, uint64 end)
+proc_uvm2kvm(pagetable_t pagetable, pagetable_t kpagetable, uint64 oldsz, uint64 newsz)
 {
-  // address cannot exceed kernel starting address
-  if (end > PLIC) return -1;
-
-  pte_t *pte, *kpte;
-  uint64 pa, i;
+  pte_t *pte_from, *pte_to;
+  uint64 a, pa;
   uint flags;
 
-  // TODO: delete
-  /*uint va0 = PGROUNDDOWN(start);
-  uint va1 = PGROUNDUP(end);
-  uvmunmap(k, va0, (va1-va0)/PGSIZE, 0);*/
+  if (newsz < oldsz)
+    return 0;
 
-  for(i = PGROUNDUP(start); i < end; i += PGSIZE){
-    if((pte = walk(u, i, 0)) == 0)
-      panic("uvmcopy: pte should exist");
-    if ((kpte = walk(k, i, 1)) == 0)
-      panic("u2kvmcopy: walk fails");
-
-    pa = PTE2PA(*pte);
-    flags = (PTE_FLAGS(*pte) & ~PTE_U);
-    *kpte = PA2PTE(pa) | flags;
+  oldsz = PGROUNDUP(oldsz);
+  for (a = oldsz; a < newsz; a += PGSIZE)
+  {
+    if ((pte_from = walk(pagetable, a, 0)) == 0)
+      return -1;
+    if ((pte_to = walk(kpagetable, a, 1)) == 0)
+      return -1;
+    pa = PTE2PA(*pte_from);
+    // 清除PTE_U的标记位
+    flags = (PTE_FLAGS(*pte_from) & (~PTE_U));
+    *pte_to = PA2PTE(pa) | flags;
   }
   return 0;
 }

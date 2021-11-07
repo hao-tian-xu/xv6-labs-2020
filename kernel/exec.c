@@ -113,17 +113,17 @@ exec(char *path, char **argv)
   p->pagetable = pagetable;
   p->sz = sz;
 
-/*  // Added by Haotian Xu on 11/5/21.
+  // Added by Haotian Xu on 11/5/21.
   // unmap old user mappings in process' kernel page table,
   // then copy process' user page table to process' kernel page table
 //  dbprint("before exec"); ptprint(p->kernel_pagetable);
-  if (oldsz >= PLIC)
-    uvmunmap(p->kernel_pagetable, 0, PLIC/PGSIZE, 0);
-  else
-    uvmunmap(p->kernel_pagetable, 0, PGROUNDUP(oldsz)/PGSIZE, 0);
+//  if (oldsz >= PLIC)
+//    uvmunmap(p->kernel_pagetable, 0, PLIC/PGSIZE, 0);
+//  else
+//    uvmunmap(p->kernel_pagetable, 0, PGROUNDUP(oldsz)/PGSIZE, 0);
   if(proc_uvm2kvm(p->pagetable, p->kernel_pagetable, 0, p->sz) < 0)
     goto bad;
-//  dbprint("after exec"); ptprint(p->kernel_pagetable);*/
+//  dbprint("after exec"); ptprint(p->kernel_pagetable);
 
   p->trapframe->epc = elf.entry;  // initial program counter = main
   p->trapframe->sp = sp; // initial stack pointer
