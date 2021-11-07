@@ -379,6 +379,9 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 int
 copyin(pagetable_t pagetable, char *dst, uint64 srcva, uint64 len)
 {
+//  return copyin_new(pagetable, dst, srcva, len);
+
+  // memo: replaced by copyin_new()
   uint64 n, va0, pa0;
 
   while(len > 0){
@@ -405,6 +408,9 @@ copyin(pagetable_t pagetable, char *dst, uint64 srcva, uint64 len)
 int
 copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
 {
+//  return copyinstr_new(pagetable, dst, srcva, max);
+
+  // memo: replaced by copyinstr_new()
   uint64 n, va0, pa0;
   int got_null = 0;
 
@@ -483,10 +489,10 @@ proc_kvmmap(pagetable_t proc_kernel_pagetable, uint64 va, uint64 pa, uint64 sz, 
 }
 
 // Created by Haotian Xu on 11/5/21.
+// per process kernel page table, see kvminit() for detail
 pagetable_t
 proc_kvminit()
 {
-  // per process page table, see kvminit() for detail
   pagetable_t proc_kernel_pagetable = (pagetable_t) kalloc();
   memset(proc_kernel_pagetable, 0, PGSIZE);
 
@@ -511,14 +517,13 @@ get_kernel_pagetable()
 // Created by Haotian Xu on 11/5/21.
 // Recursively free page-table pages.
 // Keep the leaf physical memory pages.
+// see freewalk() for detail
 void
 proc_kernel_pagetable_freewalk(pagetable_t pagetable)
 {
-  // there are 2^9 = 512 PTEs in a page table.
   for(int i = 0; i < 512; i++){
     pte_t pte = pagetable[i];
     if((pte & PTE_V) && (pte & (PTE_R|PTE_W|PTE_X)) == 0){
-      // this PTE points to a lower-level page table.
       uint64 child = PTE2PA(pte);
       proc_kernel_pagetable_freewalk((pagetable_t)child);
       pagetable[i] = 0;
@@ -529,26 +534,150 @@ proc_kernel_pagetable_freewalk(pagetable_t pagetable)
   kfree((void*)pagetable);
 }
 
+// TODO: delete this
+/*
+// Created by Haotian Xu on 11/5/21.
+// Given a parent process's page table, copy
+// its memory into a child's page table.
+// Copies both the page table and the
+// physical memory.
+// Also add the mappings to child's process kernel page table
+// returns 0 on success, -1 on failure.
+// frees any allocated pages on failure.
+int
+uvmcopy_new(pagetable_t old, pagetable_t new, pagetable_t new_kernel, uint64 sz)
+{
+  // address cannot exceed kernel starting address
+  if (sz > PLIC) return -1;
+
+  pte_t *pte;
+  uint64 pa, i;
+  uint flags;
+  char *mem;
+
+  for(i = 0; i < sz; i += PGSIZE){
+    if((pte = walk(old, i, 0)) == 0)
+      panic("uvmcopy: pte should exist");
+    if((*pte & PTE_V) == 0)
+      panic("uvmcopy: page not present");
+    pa = PTE2PA(*pte);
+    flags = PTE_FLAGS(*pte);
+    if((mem = kalloc()) == 0)
+      goto err;
+    memmove(mem, (char*)pa, PGSIZE);
+    if(mappages(new, i, PGSIZE, (uint64)mem, flags) != 0){
+      kfree(mem);
+      goto err;
+    }
+    if(mappages(new_kernel, i, PGSIZE, (uint64)mem, flags) != 0){
+      kfree(mem);
+      goto err;
+    }
+  }
+  return 0;
+
+  err:
+  uvmunmap(new, 0, i / PGSIZE, 1);
+  return -1;
+}
+*/
+
+// TODO: delete
+/*
+// Created by Haotian Xu on 11/5/21.
+// copy process' user page table to process' kernel page table
+int
+proc_uvm2kvm(pagetable_t u, pagetable_t k, uint64 start, uint64 end)
+{
+  uint64 i;
+  if (end > PLIC) return -1;
+
+  if (end > start) {
+    for (i=start; i<end; i++) {
+      k[i] = (u[i] & ~PTE_U);
+    }
+    return 0;
+  } else {
+    for (i=end; i<start; i++) {
+      k[i] = 0;
+    }
+    return 0;
+  }
+}
+*/
+
+// Created by Haotian Xu on 11/5/21.
+// from start to end, first unmap,
+// and then copy process' user page table to process' kernel page table
+// see uvmcopy() for detail, except that no alignment needed
+int
+proc_uvm2kvm(pagetable_t u, pagetable_t k, uint64 start, uint64 end)
+{
+  // address cannot exceed kernel starting address
+  if (end > PLIC) return -1;
+
+  pte_t *pte, *kpte;
+  uint64 pa, i;
+  uint flags;
+
+  // TODO: delete
+  /*uint va0 = PGROUNDDOWN(start);
+  uint va1 = PGROUNDUP(end);
+  uvmunmap(k, va0, (va1-va0)/PGSIZE, 0);*/
+
+  for(i = PGROUNDUP(start); i < end; i += PGSIZE){
+    if((pte = walk(u, i, 0)) == 0)
+      panic("uvmcopy: pte should exist");
+    if ((kpte = walk(k, i, 1)) == 0)
+      panic("u2kvmcopy: walk fails");
+
+    pa = PTE2PA(*pte);
+    flags = (PTE_FLAGS(*pte) & ~PTE_U);
+    *kpte = PA2PTE(pa) | flags;
+  }
+  return 0;
+}
 
 
+// memo: archive
+/*
+// Created by Haotian Xu on 11/5/21.
+// from start to end, first unmap,
+// and then copy process' user page table to process' kernel page table
+// see uvmcopy() for detail, except that no alignment needed
+int
+proc_uvm2kvm(pagetable_t u, pagetable_t k, uint64 start, uint64 end)
+{
+  // address cannot exceed kernel starting address
+  if (end > PLIC) return -1;
+
+  pte_t *pte;
+  uint64 pa, i;
+  uint flags;
+
+  // TODO: delete
+  */
+/*uint va0 = PGROUNDDOWN(start);
+  uint va1 = PGROUNDUP(end);
+  uvmunmap(k, va0, (va1-va0)/PGSIZE, 0);*//*
 
 
+  for(i = PGROUNDUP(start); i < end; i += PGSIZE){
+    if((pte = walk(u, i, 0)) == 0)
+      panic("uvmcopy: pte should exist");
+    if((*pte & PTE_V) == 0)
+      panic("uvmcopy: page not present");
 
+    pa = PTE2PA(*pte);
+    flags = (PTE_FLAGS(*pte) & ~PTE_U);
+//    uvmunmap(k, i, 1, 0);
+    if(mappages(k, i, PGSIZE, pa, flags) != 0){
+      goto err;
+    }
+  }
+  return 0;
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+  err:
+  uvmunmap(k, 0, i / PGSIZE, 1);
+  return -1;
+}*/

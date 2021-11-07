@@ -179,11 +179,18 @@ int             copyout(pagetable_t, uint64, char *, uint64);
 int             copyin(pagetable_t, char *, uint64, uint64);
 int             copyinstr(pagetable_t, char *, uint64, uint64);
 
-void            vmprint(pagetable_t);                                   // Added by Haotian Xu on 11/4/21.
-void            proc_kvmmap(pagetable_t, uint64, uint64, uint64, int);  // Added by Haotian Xu on 11/5/21.
-pagetable_t     proc_kvminit(void);                                     // Added by Haotian Xu on 11/5/21.
-pagetable_t     get_kernel_pagetable(void);                             // Added by Haotian Xu on 11/5/21.
-void            proc_kernel_pagetable_freewalk(pagetable_t);            // Added by Haotian Xu on 11/5/21.
+void            vmprint(pagetable_t);                                       // Added by Haotian Xu on 11/4/21.
+void            proc_kvmmap(pagetable_t, uint64, uint64, uint64, int);      // Added by Haotian Xu on 11/5/21.
+pagetable_t     proc_kvminit(void);                                         // Added by Haotian Xu on 11/5/21.
+pagetable_t     get_kernel_pagetable(void);                                 // Added by Haotian Xu on 11/5/21.
+void            proc_kernel_pagetable_freewalk(pagetable_t);                // Added by Haotian Xu on 11/5/21.
+int             uvmcopy_new(pagetable_t, pagetable_t, pagetable_t, uint64); // TODO: delete
+int proc_uvm2kvm(pagetable_t u, pagetable_t k, uint64 start, uint64 end);   // Added by Haotian Xu on 11/5/21.
+
+// Added by Haotian Xu on 11/5/21.
+// vmcopyin.c
+int             copyin_new(pagetable_t, char*, uint64, uint64);
+int             copyinstr_new(pagetable_t, char*, uint64, uint64);
 
 // plic.c
 void            plicinit(void);
@@ -229,3 +236,7 @@ int             sockread(struct sock *, uint64, int);
 int             sockwrite(struct sock *, uint64, int);
 void            sockrecvudp(struct mbuf*, uint32, uint16, uint16);
 #endif
+
+// memo: debug
+#define dbprint(p)  printf(p)
+#define ptprint(p)  vmprint(p)
