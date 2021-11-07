@@ -534,110 +534,9 @@ proc_kernel_pagetable_freewalk(pagetable_t pagetable)
   kfree((void*)pagetable);
 }
 
-// TODO: delete this
-/*
-// Created by Haotian Xu on 11/5/21.
-// Given a parent process's page table, copy
-// its memory into a child's page table.
-// Copies both the page table and the
-// physical memory.
-// Also add the mappings to child's process kernel page table
-// returns 0 on success, -1 on failure.
-// frees any allocated pages on failure.
-int
-uvmcopy_new(pagetable_t old, pagetable_t new, pagetable_t new_kernel, uint64 sz)
-{
-  // address cannot exceed kernel starting address
-  if (sz > PLIC) return -1;
+// Created by Haotian Xu on 11/7/21.
+static int _mappages_overwrite(pagetable_t, uint64, uint64, uint64, int);
 
-  pte_t *pte;
-  uint64 pa, i;
-  uint flags;
-  char *mem;
-
-  for(i = 0; i < sz; i += PGSIZE){
-    if((pte = walk(old, i, 0)) == 0)
-      panic("uvmcopy: pte should exist");
-    if((*pte & PTE_V) == 0)
-      panic("uvmcopy: page not present");
-    pa = PTE2PA(*pte);
-    flags = PTE_FLAGS(*pte);
-    if((mem = kalloc()) == 0)
-      goto err;
-    memmove(mem, (char*)pa, PGSIZE);
-    if(mappages(new, i, PGSIZE, (uint64)mem, flags) != 0){
-      kfree(mem);
-      goto err;
-    }
-    if(mappages(new_kernel, i, PGSIZE, (uint64)mem, flags) != 0){
-      kfree(mem);
-      goto err;
-    }
-  }
-  return 0;
-
-  err:
-  uvmunmap(new, 0, i / PGSIZE, 1);
-  return -1;
-}
-*/
-
-// TODO: delete
-/*
-// Created by Haotian Xu on 11/5/21.
-// copy process' user page table to process' kernel page table
-int
-proc_uvm2kvm(pagetable_t u, pagetable_t k, uint64 start, uint64 end)
-{
-  uint64 i;
-  if (end > PLIC) return -1;
-
-  if (end > start) {
-    for (i=start; i<end; i++) {
-      k[i] = (u[i] & ~PTE_U);
-    }
-    return 0;
-  } else {
-    for (i=end; i<start; i++) {
-      k[i] = 0;
-    }
-    return 0;
-  }
-}
-*/
-
-// Created by Haotian Xu on 11/5/21.
-// from start to end, first unmap,
-// and then copy process' user page table to process' kernel page table
-// see uvmcopy() for detail, except that no alignment needed
-int
-proc_uvm2kvm(pagetable_t pagetable, pagetable_t kpagetable, uint64 oldsz, uint64 newsz)
-{
-  pte_t *pte_from, *pte_to;
-  uint64 a, pa;
-  uint flags;
-
-  if (newsz < oldsz)
-    return 0;
-
-  oldsz = PGROUNDUP(oldsz);
-  for (a = oldsz; a < newsz; a += PGSIZE)
-  {
-    if ((pte_from = walk(pagetable, a, 0)) == 0)
-      return -1;
-    if ((pte_to = walk(kpagetable, a, 1)) == 0)
-      return -1;
-    pa = PTE2PA(*pte_from);
-    // 清除PTE_U的标记位
-    flags = (PTE_FLAGS(*pte_from) & (~PTE_U));
-    *pte_to = PA2PTE(pa) | flags;
-  }
-  return 0;
-}
-
-
-// memo: archive
-/*
 // Created by Haotian Xu on 11/5/21.
 // from start to end, first unmap,
 // and then copy process' user page table to process' kernel page table
@@ -652,14 +551,9 @@ proc_uvm2kvm(pagetable_t u, pagetable_t k, uint64 start, uint64 end)
   uint64 pa, i;
   uint flags;
 
-  // TODO: delete
-  */
-/*uint va0 = PGROUNDDOWN(start);
-  uint va1 = PGROUNDUP(end);
-  uvmunmap(k, va0, (va1-va0)/PGSIZE, 0);*//*
+  start = PGROUNDUP(start);
 
-
-  for(i = PGROUNDUP(start); i < end; i += PGSIZE){
+  for(i = start; i < end; i += PGSIZE){
     if((pte = walk(u, i, 0)) == 0)
       panic("uvmcopy: pte should exist");
     if((*pte & PTE_V) == 0)
@@ -667,14 +561,36 @@ proc_uvm2kvm(pagetable_t u, pagetable_t k, uint64 start, uint64 end)
 
     pa = PTE2PA(*pte);
     flags = (PTE_FLAGS(*pte) & ~PTE_U);
-//    uvmunmap(k, i, 1, 0);
-    if(mappages(k, i, PGSIZE, pa, flags) != 0){
+
+    if(_mappages_overwrite(k, i, PGSIZE, pa, flags) != 0){
       goto err;
     }
   }
   return 0;
 
   err:
-  uvmunmap(k, 0, i / PGSIZE, 1);
+  uvmunmap(k, start, (i-start) / PGSIZE, 0);
   return -1;
-}*/
+}
+
+// Created by Haotian Xu on 11/7/21.
+// see mappages() for detail except for the remap check
+static int
+_mappages_overwrite(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
+{
+  uint64 a, last;
+  pte_t *pte;
+
+  a = PGROUNDDOWN(va);
+  last = PGROUNDDOWN(va + size - 1);
+  for(;;){
+    if((pte = walk(pagetable, a, 1)) == 0)
+      return -1;
+    *pte = PA2PTE(pa) | perm | PTE_V;
+    if(a == last)
+      break;
+    a += PGSIZE;
+    pa += PGSIZE;
+  }
+  return 0;
+}
