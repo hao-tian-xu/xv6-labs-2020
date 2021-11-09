@@ -31,7 +31,6 @@ procinit(void)
   for(p = proc; p < &proc[NPROC]; p++) {
     initlock(&p->lock, "proc");
 
-    // memo: functionality is said to be moved to allocproc, but kvmpa would have a panic
     // Allocate a page for the process's kernel stack.
     // Map it high in memory, followed by an invalid
     // guard page.
@@ -109,7 +108,7 @@ found:
   p->pid = allocpid();
 
   // Allocate a trapframe page.
-  if((p->trapframe = (struct trapframe *)kalloc()) == 0){
+  if((p->trapframe = (struct trapframe *)kalloc()) == 0){   // memo: p->trapframe points to pa
     release(&p->lock);
     return 0;
   }

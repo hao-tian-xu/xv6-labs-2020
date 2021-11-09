@@ -51,6 +51,7 @@ usertrap(void)
   p->trapframe->epc = r_sepc();
   
   if(r_scause() == 8){
+    // memo: 1. syscall
     // system call
 
     if(p->killed)
@@ -66,8 +67,10 @@ usertrap(void)
 
     syscall();
   } else if((which_dev = devintr()) != 0){
+    // memo: 2. device interrupt
     // ok
   } else {
+    // memo: 3. exception
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
     p->killed = 1;
@@ -97,6 +100,7 @@ usertrapret(void)
   intr_off();
 
   // send syscalls, interrupts, and exceptions to trampoline.S
+  // memo: set stvec to refer to uservec
   w_stvec(TRAMPOLINE + (uservec - trampoline));
 
   // set up trapframe values that uservec will need when

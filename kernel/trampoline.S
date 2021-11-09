@@ -61,6 +61,7 @@ uservec:
         sd t6, 280(a0)
 
 	# save the user a0 in p->trapframe->a0
+    # // memo: save a0 from sscratch
         csrr t0, sscratch
         sd t0, 112(a0)
 
