@@ -69,6 +69,9 @@ sys_sleep(void)
     }
     sleep(&ticks, &tickslock);
   }
+#ifdef LAB_TRAP
+  backtrace();    // Added by Haotian Xu on 11/15/21.
+#endif
   release(&tickslock);
   return 0;
 }

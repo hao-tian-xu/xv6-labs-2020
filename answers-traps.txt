@@ -1,0 +1,7 @@
+1.1 a2
+1.2 convert function call directly to number
+1.3 0x630
+1.4 0x38 (jalr rs --> jalr x0, 0(rs) // memo: x0 is ra for return address
+1.5 HE110 World
+    0x726c6400
+1.6 the value is whatever stored in a1 which shoud be the second argument but not provided
