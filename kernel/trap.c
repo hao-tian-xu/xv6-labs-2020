@@ -112,7 +112,7 @@ usertrapret(void)
   // set S Previous Privilege mode to User.
   unsigned long x = r_sstatus();
   x &= ~SSTATUS_SPP; // clear SPP to 0 for user mode
-  x |= SSTATUS_SPIE; // enable interrupts in user mode
+  x |= SSTATUS_SPIE; // enable interrupts in user mode  // memo: actually SPIE will be copied to PIE when calling sret in userret in trampoline.S, which will enable interrupt in Supervisor Mode
   w_sstatus(x);
 
   // set S Exception Program Counter to the saved user pc.
