@@ -18,7 +18,7 @@
 // A system call should call begin_op()/end_op() to mark
 // its start and end. Usually begin_op() just increments
 // the count of in-progress FS system calls and returns.
-// But if it thinks the log is close to running out, it
+// But if it thinks the log is close to alarm_running out, it
 // sleeps until the last outstanding end_op() commits.
 //
 // The log is a physical re-do log containing disk blocks.

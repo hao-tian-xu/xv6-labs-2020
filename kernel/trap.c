@@ -77,9 +77,24 @@ usertrap(void)
     exit(-1);
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2)
+  if(which_dev == 2) {
     yield();
+#ifdef LAB_TRAP
+    // Added by Haotian Xu on 11/15/21.
+    if (p->ticks == 0) goto end;
+    else {
+      p->tickspassed += 1;
+      if (p->tickspassed >= p->ticks && !p->alarm_running) {
+        p->tickspassed -= p->ticks;
+        *p->alarm_trapframe = *p->trapframe;
+        p->trapframe->epc = (uint64)p->handler;
+        p->alarm_running = 1;
+      }
+    }
+#endif
+  }
 
+end:
   usertrapret();
 }
 

@@ -2143,7 +2143,7 @@ sbrkfail(char *s)
     exit(1);
   }
 
-  // test running fork with the above allocated page 
+  // test alarm_running fork with the above allocated page
   pid = fork();
   if(pid < 0){
     printf("%s: fork failed\n", s);

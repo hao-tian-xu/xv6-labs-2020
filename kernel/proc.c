@@ -121,6 +121,18 @@ found:
     return 0;
   }
 
+#ifdef LAB_TRAP
+  // Added by Haotian Xu on 11/15/21.
+  // Initialize Alarm
+  p->ticks = 0;
+  p->tickspassed = 0;
+  p->handler = 0;
+  if((p->alarm_trapframe = (struct trapframe *)kalloc()) == 0){
+    release(&p->lock);
+    return 0;
+  }
+#endif
+
   // Set up new context to start executing at forkret,
   // which returns to user space.
   memset(&p->context, 0, sizeof(p->context));
@@ -150,6 +162,16 @@ freeproc(struct proc *p)
   p->killed = 0;
   p->xstate = 0;
   p->state = UNUSED;
+#ifdef LAB_TRAP
+  // Added by Haotian Xu on 11/15/21.
+  if(p->alarm_trapframe)
+    kfree((void*)p->alarm_trapframe);
+  p->alarm_trapframe = 0;
+  p->ticks = 0;
+  p->tickspassed = 0;
+  p->handler = 0;
+  p->alarm_running = 0;
+#endif
 }
 
 // Create a user page table for a given process,
@@ -450,7 +472,7 @@ wait(uint64 addr)
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
 //  - choose a process to run.
-//  - swtch to start running that process.
+//  - swtch to start alarm_running that process.
 //  - eventually that process transfers control
 //    via swtch back to the scheduler.
 void
@@ -475,7 +497,7 @@ scheduler(void)
         c->proc = p;
         swtch(&c->context, &p->context);
 
-        // Process is done running for now.
+        // Process is done alarm_running for now.
         // It should have changed its p->state before coming back.
         c->proc = 0;
 
@@ -512,7 +534,7 @@ sched(void)
   if(mycpu()->noff != 1)
     panic("sched locks");
   if(p->state == RUNNING)
-    panic("sched running");
+    panic("sched alarm_running");
   if(intr_get())
     panic("sched interruptible");
 

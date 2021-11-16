@@ -176,8 +176,7 @@ UPROGS=\
 	$U/_wc\
 	$U/_zombie\
 	$U/_lab_questions\
-
-
+	$U/_alarmtest\
 
 
 ifeq ($(LAB),$(filter $(LAB), pgtbl lock))

@@ -484,3 +484,36 @@ sys_pipe(void)
   }
   return 0;
 }
+
+#ifdef LAB_TRAP
+// Created by Haotian Xu on 11/15/21.
+int
+sys_sigalarm(void)
+{
+  int ticks;
+  uint64 handler;
+  struct proc *p = myproc();
+
+  if(argint(0, &ticks) < 0)
+    return -1;
+  if(argaddr(1, &handler) < 0)
+    return -1;
+
+  p->ticks = ticks;
+  p->handler = (void (*)())handler;
+
+  return 0;
+}
+
+// Created by Haotian Xu on 11/15/21.
+int
+sys_sigreturn(void)
+{
+  struct proc *p = myproc();
+  *p->trapframe = *p->alarm_trapframe;
+  p->alarm_running = 0;
+  usertrapret();
+
+  return 0;
+}
+#endif
