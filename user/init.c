@@ -7,6 +7,7 @@
 #include "kernel/fs.h"
 #include "kernel/file.h"
 #include "user/user.h"
+#include "user.h"
 #include "kernel/fcntl.h"
 
 char *argv[] = { "sh", 0 };
@@ -16,7 +17,7 @@ main(void)
 {
   int pid, wpid;
 
-  if(open("console", O_RDWR) < 0){
+  if(open("console", O_RDWR) < 0){    // memo: open a file descriptor for the console
     mknod("console", CONSOLE, 0);
     open("console", O_RDWR);
   }

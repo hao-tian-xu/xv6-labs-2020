@@ -7,6 +7,7 @@
 #include "kernel/syscall.h"
 #include "kernel/memlayout.h"
 #include "kernel/riscv.h"
+#include "user.h"
 
 //
 // Tests xv6 system calls.  usertests without arguments runs them all

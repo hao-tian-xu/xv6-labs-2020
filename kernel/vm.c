@@ -6,6 +6,9 @@
 #include "defs.h"
 #include "fs.h"
 
+#include "spinlock.h"
+#include "proc.h"
+
 /*
  * the kernel's page table.
  */
@@ -96,11 +99,28 @@ walkaddr(pagetable_t pagetable, uint64 va)
 {
   pte_t *pte;
   uint64 pa;
+  struct proc* p = myproc();
 
   if(va >= MAXVA)
     return 0;
 
   pte = walk(pagetable, va, 0);
+
+#ifdef LAB_LAZY
+  if (pte == 0 || (*pte & PTE_V) == 0) {
+    if (va < p->sz && va >= PGROUNDUP(p->trapframe->sp)) {
+      void *pa = kalloc();
+      if (pa == 0)
+        return 0;
+      memset(pa, 0, PGSIZE);
+      if (mappages(p->pagetable, PGROUNDDOWN(va), PGSIZE, (uint64) pa, PTE_W | PTE_X | PTE_R | PTE_U) != 0) {
+        kfree(pa);
+        return 0;
+      }
+      pte = walk(pagetable, va, 0);
+    } else return 0;
+  }
+#endif
   if(pte == 0)
     return 0;
   if((*pte & PTE_V) == 0)
@@ -181,9 +201,17 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
 
   for(a = va; a < va + npages*PGSIZE; a += PGSIZE){
     if((pte = walk(pagetable, a, 0)) == 0)
+#ifdef LAB_LAZY
+      continue;
+#else
       panic("uvmunmap: walk");
+#endif
     if((*pte & PTE_V) == 0)
+#ifdef LAB_LAZY
+      continue;
+#else
       panic("uvmunmap: not mapped");
+#endif
     if(PTE_FLAGS(*pte) == PTE_V)
       panic("uvmunmap: not a leaf");
     if(do_free){
@@ -315,9 +343,17 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
 
   for(i = 0; i < sz; i += PGSIZE){
     if((pte = walk(old, i, 0)) == 0)
+#ifdef LAB_LAZY
+      continue;
+#else
       panic("uvmcopy: pte should exist");
+#endif
     if((*pte & PTE_V) == 0)
+#ifdef LAB_LAZY
+      continue;
+#else
       panic("uvmcopy: page not present");
+#endif
     pa = PTE2PA(*pte);
     flags = PTE_FLAGS(*pte);
     if((mem = kalloc()) == 0)

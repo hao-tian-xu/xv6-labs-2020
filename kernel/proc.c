@@ -242,10 +242,15 @@ growproc(int n)
   struct proc *p = myproc();
 
   sz = p->sz;
+
   if(n > 0){
+#ifdef LAB_LAZY
+    sz += n;
+#else
     if((sz = uvmalloc(p->pagetable, sz, sz + n)) == 0) {
       return -1;
     }
+#endif
   } else if(n < 0){
     sz = uvmdealloc(p->pagetable, sz, sz + n);
   }
@@ -274,7 +279,6 @@ fork(void)
     return -1;
   }
   np->sz = p->sz;
-
   np->parent = p;
 
   // copy saved user registers.
