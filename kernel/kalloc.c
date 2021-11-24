@@ -19,13 +19,47 @@ struct run {
 };
 
 struct {
-  struct spinlock lock;
+  struct spinlock lock;   // memo: a single lock for physical memory allocation and free
   struct run *freelist;
 } kmem;
+
+// Added by Haotian
+#ifdef LAB_COW
+int refcount[(PHYSTOP - KERNBASE) / PGSIZE];
+#define refcount_init(pa) (refcount[((uint64)pa - KERNBASE) / PGSIZE] = 1)
+//#define refcount_increase(pa) (refcount[((uint64)pa - KERNBASE) / PGSIZE]++)
+#define refcount_decrease(pa) (refcount[((uint64)pa - KERNBASE) / PGSIZE]--)
+#define refcount_get(pa) (refcount[((uint64)pa - KERNBASE) / PGSIZE])
+
+void
+refcount_increase(uint64 pa)
+{
+  refcount[(uint64)(pa - KERNBASE) / PGSIZE]++;
+}
+#endif
+
+#ifdef LAB_COW_ALTER
+int refcount[PHYSTOP / PGSIZE];
+#define refcount_init(pa) refcount[(uint64)pa / PGSIZE] = 1
+//#define refcount_increase(pa) refcount[(uint64)(pa - KERNBASE) / PGSIZE]++
+#define refcount_decrease(pa) refcount[(uint64)pa / PGSIZE]--
+#define refcount_get(pa) refcount[(uint64)pa / PGSIZE]
+
+void
+refcount_increase(uint64 pa)
+{
+  refcount[(uint64)pa / PGSIZE]++;
+}
+#endif
+
 
 void
 kinit()
 {
+#ifdef LAB_COW
+  for (int i = 0; i < ((PHYSTOP - KERNBASE) / PGSIZE); i++)
+    refcount[i] = 0;
+#endif
   initlock(&kmem.lock, "kmem");
   freerange(end, (void*)PHYSTOP);
 }
@@ -50,6 +84,12 @@ kfree(void *pa)
 
   if(((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
     panic("kfree");
+
+#ifdef LAB_COW
+  refcount_decrease(pa);
+  if (refcount_get(pa) > 0)
+    return;
+#endif
 
   // Fill with junk to catch dangling refs.
   memset(pa, 1, PGSIZE);
@@ -78,5 +118,13 @@ kalloc(void)
 
   if(r)
     memset((char*)r, 5, PGSIZE); // fill with junk
+
+  // Added by Haotian
+#ifdef LAB_COW
+  if(r)
+    refcount_init(r);
+//    refcount_increase((uint64)r);
+#endif
+
   return (void*)r;
 }

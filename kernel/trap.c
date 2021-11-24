@@ -37,6 +37,12 @@ void
 usertrap(void)
 {
   int which_dev = 0;
+#ifdef LAB_COW_ALTER
+  pte_t *pte;
+  uint64 pa, va;
+  uint flags;
+  char *mem;
+#endif
 
   if((r_sstatus() & SSTATUS_SPP) != 0)
     panic("usertrap: not from user mode");
@@ -67,10 +73,44 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
-  } else {
-    printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
-    printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
-    p->killed = 1;
+  }
+#ifdef LAB_COW
+  else if(r_scause() == 13 || r_scause() == 15) {
+#ifdef LAB_COW_ALTER
+    va = PGROUNDDOWN(r_stval());
+    if((pte = walk(p->pagetable, va, 0)) == 0) {
+      p->killed = 1;
+      goto end;
+    }
+
+    if (*pte & PTE_COW) {
+      pa = PTE2PA(*pte);
+      if((mem = kalloc()) == 0) {
+        p->killed = 1;
+        goto end;
+      }
+      memmove(mem, (char*)pa, PGSIZE);
+      flags = PTE_FLAGS(*pte) | PTE_W;
+      uvmunmap(p->pagetable, va, 1, 1);     // Haotian: unmap va, and if pa has no mapping, free it
+      if(mappages(p->pagetable, va, PGSIZE, (uint64)mem, flags) != 0){
+        kfree(mem);
+        p->killed = 1;
+      }
+    } else {
+      p->killed = 1;
+    }
+#else
+    if (r_stval() <= PGROUNDDOWN(p->trapframe->sp) && r_stval() >= PGROUNDDOWN(p->trapframe->sp) - PGSIZE)
+      p->killed = 1;
+    else if(cowalloc(p->pagetable, r_stval()) < 0)
+      p->killed = 1;
+#endif
+  }
+#endif
+  else {
+      printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
+      printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
+      p->killed = 1;
   }
 
   if(p->killed)

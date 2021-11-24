@@ -60,6 +60,7 @@ void            ramdiskintr(void);
 void            ramdiskrw(struct buf*);
 
 // kalloc.c
+void            refcount_increase(uint64);  // Added by Haotian
 void*           kalloc(void);
 void            kfree(void *);
 void            kinit(void);
@@ -167,10 +168,12 @@ int             uvmcopy(pagetable_t, pagetable_t, uint64);
 void            uvmfree(pagetable_t, uint64);
 void            uvmunmap(pagetable_t, uint64, uint64, int);
 void            uvmclear(pagetable_t, uint64);
+pte_t *         walk(pagetable_t pagetable, uint64 va, int alloc);  // Added by Haotian
 uint64          walkaddr(pagetable_t, uint64);
 int             copyout(pagetable_t, uint64, char *, uint64);
 int             copyin(pagetable_t, char *, uint64, uint64);
 int             copyinstr(pagetable_t, char *, uint64, uint64);
+int             cowalloc(pagetable_t, uint64);         // Added by Haotian
 
 // plic.c
 void            plicinit(void);
@@ -185,3 +188,6 @@ void            virtio_disk_intr(void);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
+
+// Added by Haotian
+#define LAB_COW 1
