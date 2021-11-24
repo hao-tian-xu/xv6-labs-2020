@@ -507,10 +507,6 @@ cowalloc(pagetable_t pagetable, uint64 va)
     kfree((void*)pa);
     flags = (flags & ~PTE_COW) | PTE_W;
     *pte = PA2PTE((uint64)mem) | flags;
-  } else if (flags & PTE_W) {
-    return 0;
-  } else {
-    return -1;
   }
   return 0;
 }
@@ -518,25 +514,35 @@ cowalloc(pagetable_t pagetable, uint64 va)
 
 #ifdef LAB_COW_ALTER
 int
-cowalloc(pagetable_t pagetable, uint64 va) {
-  uint64 pa;
+cowalloc(pagetable_t pagetable, uint64 va)
+{
   pte_t *pte;
+  uint64 pa;
   uint flags;
+  char *mem;
+
+  if(va > MAXVA) return -1;
 
   va = PGROUNDDOWN(va);
-
-  if ((pte = walk(pagetable, va, 0)) == 0)
-    return -1;
-  if ((pa = PTE2PA(*pte)) == 0)
-    return -1;
+  if((pte = walk(pagetable, va, 0)) == 0) return -1;
+  if((pa = PTE2PA(*pte)) == 0) return -1;
 
   flags = PTE_FLAGS(*pte);
 
   if (flags & PTE_COW) {
-
+    if((mem = kalloc()) == 0) return -1;
+    memmove(mem, (char*)pa, PGSIZE);
+    flags = (flags & ~PTE_COW) | PTE_W;
+    uvmunmap(p->pagetable, va, 1, 1);     // Haotian: unmap va, and if pa has no mapping, free it
+    if(mappages(p->pagetable, va, PGSIZE, (uint64)mem, flags) != 0){
+      kfree(mem);
+      p->killed = 1;
+    }
+  } else if (flags & PTE_W) {
+    return 0;
   } else {
     return -1;
   }
-  return 0
+  return 0;
 }
 #endif

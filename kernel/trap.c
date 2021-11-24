@@ -100,8 +100,12 @@ usertrap(void)
       p->killed = 1;
     }
 #else
+    // not in stack guard page
     if (r_stval() <= PGROUNDDOWN(p->trapframe->sp) && r_stval() >= PGROUNDDOWN(p->trapframe->sp) - PGSIZE)
       p->killed = 1;
+    // not larger than process sz
+//    else if(r_stval() >= p->sz)
+//      p->killed = 1;
     else if(cowalloc(p->pagetable, r_stval()) < 0)
       p->killed = 1;
 #endif
