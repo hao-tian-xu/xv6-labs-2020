@@ -23,35 +23,18 @@ struct {
   struct run *freelist;
 } kmem;
 
-// Added by Haotian
 #ifdef LAB_COW
 int refcount[(PHYSTOP - KERNBASE) / PGSIZE];
 #define refcount_init(pa) (refcount[((uint64)pa - KERNBASE) / PGSIZE] = 1)
-//#define refcount_increase(pa) (refcount[((uint64)pa - KERNBASE) / PGSIZE]++)
 #define refcount_decrease(pa) (refcount[((uint64)pa - KERNBASE) / PGSIZE]--)
 #define refcount_get(pa) (refcount[((uint64)pa - KERNBASE) / PGSIZE])
 
 void
 refcount_increase(uint64 pa)
 {
-  refcount[(uint64)(pa - KERNBASE) / PGSIZE]++;
+  refcount[(pa - KERNBASE) / PGSIZE]++;
 }
 #endif
-
-#ifdef LAB_COW_ALTER
-int refcount[PHYSTOP / PGSIZE];
-#define refcount_init(pa) refcount[(uint64)pa / PGSIZE] = 1
-//#define refcount_increase(pa) refcount[(uint64)(pa - KERNBASE) / PGSIZE]++
-#define refcount_decrease(pa) refcount[(uint64)pa / PGSIZE]--
-#define refcount_get(pa) refcount[(uint64)pa / PGSIZE]
-
-void
-refcount_increase(uint64 pa)
-{
-  refcount[(uint64)pa / PGSIZE]++;
-}
-#endif
-
 
 void
 kinit()
@@ -119,11 +102,9 @@ kalloc(void)
   if(r)
     memset((char*)r, 5, PGSIZE); // fill with junk
 
-  // Added by Haotian
 #ifdef LAB_COW
   if(r)
     refcount_init(r);
-//    refcount_increase((uint64)r);
 #endif
 
   return (void*)r;

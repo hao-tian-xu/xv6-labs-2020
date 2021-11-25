@@ -369,33 +369,9 @@ int
 copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 {
   uint64 n, va0, pa0;
-#ifdef LAB_COW_ALTER
-  pte_t *pte;
-  uint64 pa;
-  uint flags;
-  char *mem;
-#endif
 
   while(len > 0){
     va0 = PGROUNDDOWN(dstva);
-#ifdef LAB_COW_ALTER
-    if((pte = walk(pagetable, va0, 0)) == 0)
-      panic("copyout: pte should exist");
-    if (!(*pte & PTE_W)) {
-      if (*pte & PTE_COW) {
-        pa = PTE2PA(*pte);
-        if ((mem = kalloc()) == 0)
-          panic("copyout: no free memory");
-        memmove(mem, (char *) pa, PGSIZE);
-        flags = PTE_FLAGS(*pte) | PTE_W;
-        uvmunmap(pagetable, va0, 1, 1);
-        if (mappages(pagetable, va0, PGSIZE, (uint64) mem, flags) != 0)
-          panic("copyout: mappages error");
-      } else {
-        panic("copyout: no write permission");
-      }
-    }
-#endif
 #ifdef LAB_COW
     if(cowalloc(pagetable, va0) < 0)
       return -1;
@@ -490,7 +466,6 @@ cowalloc(pagetable_t pagetable, uint64 va)
   uint64 pa;
   pte_t *pte;
   uint flags;
-//  struct proc *p = myproc();
 
   if(va > MAXVA) return -1;
 
@@ -507,41 +482,6 @@ cowalloc(pagetable_t pagetable, uint64 va)
     kfree((void*)pa);
     flags = (flags & ~PTE_COW) | PTE_W;
     *pte = PA2PTE((uint64)mem) | flags;
-  }
-  return 0;
-}
-#endif
-
-#ifdef LAB_COW_ALTER
-int
-cowalloc(pagetable_t pagetable, uint64 va)
-{
-  pte_t *pte;
-  uint64 pa;
-  uint flags;
-  char *mem;
-
-  if(va > MAXVA) return -1;
-
-  va = PGROUNDDOWN(va);
-  if((pte = walk(pagetable, va, 0)) == 0) return -1;
-  if((pa = PTE2PA(*pte)) == 0) return -1;
-
-  flags = PTE_FLAGS(*pte);
-
-  if (flags & PTE_COW) {
-    if((mem = kalloc()) == 0) return -1;
-    memmove(mem, (char*)pa, PGSIZE);
-    flags = (flags & ~PTE_COW) | PTE_W;
-    uvmunmap(p->pagetable, va, 1, 1);     // Haotian: unmap va, and if pa has no mapping, free it
-    if(mappages(p->pagetable, va, PGSIZE, (uint64)mem, flags) != 0){
-      kfree(mem);
-      p->killed = 1;
-    }
-  } else if (flags & PTE_W) {
-    return 0;
-  } else {
-    return -1;
   }
   return 0;
 }
