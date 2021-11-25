@@ -27,39 +27,19 @@ struct {
 #ifdef LAB_COW
 int refcount[(PHYSTOP - KERNBASE) / PGSIZE];
 #define refcount_init(pa) (refcount[((uint64)pa - KERNBASE) / PGSIZE] = 1)
-//#define refcount_increase(pa) (refcount[((uint64)pa - KERNBASE) / PGSIZE]++)
 #define refcount_decrease(pa) (refcount[((uint64)pa - KERNBASE) / PGSIZE]--)
 #define refcount_get(pa) (refcount[((uint64)pa - KERNBASE) / PGSIZE])
 
 void
 refcount_increase(uint64 pa)
 {
-  refcount[(uint64)(pa - KERNBASE) / PGSIZE]++;
+  refcount[(pa - KERNBASE) / PGSIZE]++;
 }
 #endif
-
-#ifdef LAB_COW_ALTER
-int refcount[PHYSTOP / PGSIZE];
-#define refcount_init(pa) refcount[(uint64)pa / PGSIZE] = 1
-//#define refcount_increase(pa) refcount[(uint64)(pa - KERNBASE) / PGSIZE]++
-#define refcount_decrease(pa) refcount[(uint64)pa / PGSIZE]--
-#define refcount_get(pa) refcount[(uint64)pa / PGSIZE]
-
-void
-refcount_increase(uint64 pa)
-{
-  refcount[(uint64)pa / PGSIZE]++;
-}
-#endif
-
 
 void
 kinit()
 {
-#ifdef LAB_COW
-  for (int i = 0; i < ((PHYSTOP - KERNBASE) / PGSIZE); i++)
-    refcount[i] = 0;
-#endif
   initlock(&kmem.lock, "kmem");
   freerange(end, (void*)PHYSTOP);
 }
@@ -123,7 +103,6 @@ kalloc(void)
 #ifdef LAB_COW
   if(r)
     refcount_init(r);
-//    refcount_increase((uint64)r);
 #endif
 
   return (void*)r;
