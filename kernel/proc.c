@@ -466,7 +466,7 @@ scheduler(void)
     
     int nproc = 0;
     for(p = proc; p < &proc[NPROC]; p++) {
-      acquire(&p->lock);
+      acquire(&p->lock);    // memo: released in yield() after swtch()
       if(p->state != UNUSED) {
         nproc++;
       }
@@ -482,7 +482,7 @@ scheduler(void)
         // It should have changed its p->state before coming back.
         c->proc = 0;
       }
-      release(&p->lock);
+      release(&p->lock);    // memo: acquired in yield()
     }
     if(nproc <= 2) {   // only init and sh exist
       intr_on();
@@ -523,10 +523,10 @@ void
 yield(void)
 {
   struct proc *p = myproc();
-  acquire(&p->lock);
+  acquire(&p->lock);    // memo: actually realeased in scheduler()
   p->state = RUNNABLE;
   sched();
-  release(&p->lock);
+  release(&p->lock);    // memo: actually release the lock acquired in scheduler()
 }
 
 // A fork child's very first scheduling by scheduler()
