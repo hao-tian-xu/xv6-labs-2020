@@ -254,8 +254,8 @@ clean:
 	mkfs/mkfs .gdbinit \
         $U/usys.S \
 	$(UPROGS) \
-	*/*[2-9]* \
-	.*[2-9] *[2-9]*
+	*/*[ ][2-9]* \
+	.*[ ][2-9] *[ ][2-9]*
 
 # try to generate a unique GDB port
 GDBPORT = $(shell expr `id -u` % 5000 + 25000)

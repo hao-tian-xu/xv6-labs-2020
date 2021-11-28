@@ -1,0 +1,4 @@
+p2:
+    interleaving of these two instructions in insert():
+        e->next = n;
+        *p = e;
