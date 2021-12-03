@@ -244,15 +244,15 @@ create(char *path, short type, short major, short minor)
   struct inode *ip, *dp;
   char name[DIRSIZ];
 
-  if((dp = nameiparent(path, name)) == 0)
+  if((dp = nameiparent(path, name)) == 0)     // memo: parent inode
     return 0;
 
   ilock(dp);
 
-  if((ip = dirlookup(dp, name, 0)) != 0){
+  if((ip = dirlookup(dp, name, 0)) != 0){     // memo: name existed
     iunlockput(dp);
     ilock(ip);
-    if(type == T_FILE && (ip->type == T_FILE || ip->type == T_DEVICE))
+    if(type == T_FILE && (ip->type == T_FILE || ip->type == T_DEVICE))    // memo: open a regular file
       return ip;
     iunlockput(ip);
     return 0;
