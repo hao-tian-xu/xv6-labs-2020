@@ -5,6 +5,7 @@
 #include "kernel/riscv.h"
 #include "kernel/fs.h"
 #include "user/user.h"
+#include "user.h"
 
 void test0();
 void test1();
