@@ -26,7 +26,6 @@
 #define NBUCKET 13
 
 struct {
-  struct spinlock lock;
   struct spinlock hashlock[NBUCKET];
   struct buf buf[NBUF];
 
@@ -40,11 +39,12 @@ void
 binit(void)
 {
   struct buf *b;
+  char lockname[8];
 
-  initlock(&bcache.lock, "bcache");
-
-  for (int i = 0; i < NBUCKET; i++)
-    initlock(&bcache.hashlock[i], "bcache");
+  for (int i = 0; i < NBUCKET; i++) {
+    snprintf(lockname, sizeof(lockname), "bcache%d", i);
+    initlock(&bcache.hashlock[i], lockname);
+  }
 
   for(b = bcache.buf; b < bcache.buf+NBUF; b++){
     initsleeplock(&b->lock, "buffer");
@@ -59,8 +59,6 @@ bget(uint dev, uint blockno)
 {
   struct buf *b, *temp;
   int hash = blockno % NBUCKET;
-
-  acquire(&bcache.lock);
   acquire(&bcache.hashlock[hash]);
 
   // Is the block already cached?
@@ -68,7 +66,6 @@ bget(uint dev, uint blockno)
     if(b->dev == dev && b->blockno == blockno){
       b->refcnt++;
       release(&bcache.hashlock[hash]);
-      release(&bcache.lock);
       acquiresleep(&b->lock);
       return b;
     }
@@ -96,8 +93,6 @@ bget(uint dev, uint blockno)
       bcache.hashtable[hash].next = b;
       if (ihash != hash) release(&bcache.hashlock[ihash]);
       release(&bcache.hashlock[hash]);
-
-      release(&bcache.lock);
       acquiresleep(&b->lock);
       return b;
     }
@@ -142,7 +137,6 @@ brelse(struct buf *b)
 
   releasesleep(&b->lock);
 
-  acquire(&bcache.lock);
   acquire(&bcache.hashlock[hash]);
   b->refcnt--;
   if (b->refcnt == 0) {
@@ -157,21 +151,22 @@ brelse(struct buf *b)
   }
 
   release(&bcache.hashlock[hash]);
-  release(&bcache.lock);
 }
 
 void
 bpin(struct buf *b) {
-  acquire(&bcache.lock);
+  int hash = b->blockno % NBUCKET;
+  acquire(&bcache.hashlock[hash]);
   b->refcnt++;
-  release(&bcache.lock);
+  release(&bcache.hashlock[hash]);
 }
 
 void
 bunpin(struct buf *b) {
-  acquire(&bcache.lock);
+  int hash = b->blockno % NBUCKET;
+  acquire(&bcache.hashlock[hash]);
   b->refcnt--;
-  release(&bcache.lock);
+  release(&bcache.hashlock[hash]);
 }
 
 
