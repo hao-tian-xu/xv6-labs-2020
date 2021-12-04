@@ -18,7 +18,7 @@ struct run {
   struct run *next;
 };
 
-#ifdef LAB_LOCK_MINE
+#ifdef LAB_LOCK_1
 struct {
   struct spinlock lock;
   struct run *freelist;
@@ -33,7 +33,7 @@ struct {
 void
 kinit()
 {
-#ifdef LAB_LOCK_MINE
+#ifdef LAB_LOCK_1
   char* kmem_name = "kmem0";
   for(int i = 0; i < NCPU; i++){
     snprintf(kmem_name, 4096, "kmem%d", i);
@@ -71,7 +71,7 @@ kfree(void *pa)
 
   r = (struct run*)pa;
 
-#ifdef LAB_LOCK_MINE
+#ifdef LAB_LOCK_1
   push_off();
   int i = cpuid();
   pop_off();
@@ -96,7 +96,7 @@ kalloc(void)
 {
   struct run *r;
 
-#ifdef LAB_LOCK_MINE
+#ifdef LAB_LOCK_1
   push_off();
   int i = cpuid();
   pop_off();
