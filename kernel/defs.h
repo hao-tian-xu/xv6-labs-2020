@@ -11,9 +11,6 @@ struct superblock;
 
 #define LAB_LOCK 1
 #define LAB_LOCK_1 1
-#define LAB_LOCK_2 1
-
-#define UNINIT 4096
 
 #ifdef LAB_NET
 struct mbuf;
