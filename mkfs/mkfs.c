@@ -276,21 +276,21 @@ iappend(uint inum, void *xp, int n)
   while(n > 0){
     fbn = off / BSIZE;
     assert(fbn < MAXFILE);
-    if(fbn < NDIRECT){
+    if(fbn < NDIRECT+1){
       if(xint(din.addrs[fbn]) == 0){
         din.addrs[fbn] = xint(freeblock++);
       }
       x = xint(din.addrs[fbn]);
     } else {
-      if(xint(din.addrs[NDIRECT]) == 0){
-        din.addrs[NDIRECT] = xint(freeblock++);
+      if(xint(din.addrs[NDIRECT+1]) == 0){
+        din.addrs[NDIRECT+1] = xint(freeblock++);
       }
-      rsect(xint(din.addrs[NDIRECT]), (char*)indirect);
-      if(indirect[fbn - NDIRECT] == 0){
-        indirect[fbn - NDIRECT] = xint(freeblock++);
-        wsect(xint(din.addrs[NDIRECT]), (char*)indirect);
+      rsect(xint(din.addrs[NDIRECT+1]), (char*)indirect);
+      if(indirect[fbn - NDIRECT-1] == 0){
+        indirect[fbn - NDIRECT-1] = xint(freeblock++);
+        wsect(xint(din.addrs[NDIRECT+1]), (char*)indirect);
       }
-      x = xint(indirect[fbn-NDIRECT]);
+      x = xint(indirect[fbn-NDIRECT-1]);
     }
     n1 = min(n, (fbn + 1) * BSIZE - off);
     rsect(x, buf);
