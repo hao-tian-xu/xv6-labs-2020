@@ -488,5 +488,60 @@ sys_pipe(void)
 uint64
 sys_symlink(void)
 {
+  char name[DIRSIZ], path[MAXPATH], target[MAXPATH];
+  struct inode *dp, *ip, *ip_new;
+
+  if(argstr(0, target, MAXPATH) < 0 || argstr(1, path, MAXPATH) < 0)
+    return -1;
+
+  begin_op();
+  if((ip = namei(target)) == 0){
+    end_op();
+    return -1;
+  }
+
+  ilock(ip);
+  if(ip->type == T_DIR) {
+    iunlockput(ip);
+    end_op();
+    return -1;
+  }
+
+  ip->nlink++;
+  iupdate(ip);
+  iunlock(ip);
+
+  if((dp = nameiparent(path, name)) == 0 || dp->dev != ip->dev)
+    goto symlinkbad;
+
+  if((ip_new = ialloc(ip->dev, T_SYMLINK)) == 0)
+    panic("sys_symlink: ialloc");
+
+  ilock(ip_new);
+  ip_new->major = 0;
+  ip_new->minor = 0;
+  ip_new->nlink = 1;
+  if(writei(ip_new, 0, (uint64) target, 0, sizeof(target)) != sizeof(target))
+    panic("sys_symlink: writei");
+  iupdate(ip_new);
+  iunlock(ip_new);
+
+  ilock(dp);
+  if(dirlink(dp, name, ip_new->inum) < 0)
+    panic("sys_symlink: dirlink");
+  iunlockput(dp);
+
+  iput(ip);
+
+  end_op();
+
   return 0;
+
+symlinkbad:
+  ilock(ip);
+  ip->nlink--;
+  iupdate(ip);
+  iunlockput(ip);
+  end_op();
+  return -1;
 }
