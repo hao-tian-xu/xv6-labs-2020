@@ -322,15 +322,19 @@ sys_open(void)
     return -1;
   }
 
-  if(ip->type == T_SYMLINK && !(omode & O_NOFOLLOW)){
-    if(readi(ip, 0, (uint64) sympath, 0, sizeof(sympath)) != sizeof(sympath))
-      panic("sys_open: readi");
-    iunlock(ip);
-    if((ip = namei(sympath)) == 0){
-      end_op();
-      return -1;
-    }
-    ilock(ip);
+  n = 0;
+  while (1) {
+    if (ip->type == T_SYMLINK && !(omode & O_NOFOLLOW)) {
+      if (readi(ip, 0, (uint64) sympath, 0, sizeof(sympath)) != sizeof(sympath))
+        panic("sys_open: readi");
+      iunlock(ip);
+      if ((ip = namei(sympath)) == 0 || n > 10) {
+        end_op();
+        return -1;
+      }
+      n++;
+      ilock(ip);
+    } else break;
   }
 
   if((f = filealloc()) == 0 || (fd = fdalloc(f)) < 0){
@@ -511,16 +515,10 @@ sys_symlink(void)
     return -1;
   }
 
-//  ilock(ip);
   if(ip->type == T_DIR) {
-//    iunlockput(ip);
     end_op();
     return -1;
   }
-
-//  ip->nlink++;
-//  iupdate(ip);
-//  iunlock(ip);
 
   if((dp = nameiparent(path, name)) == 0 || dp->dev != ip->dev)
     goto symlinkbad;
