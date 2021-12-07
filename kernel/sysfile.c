@@ -504,42 +504,38 @@ uint64
 sys_symlink(void)
 {
   char name[DIRSIZ], path[MAXPATH], target[MAXPATH];
-  struct inode *dp, *ip_new;
+  struct inode *dp, *ip;
 
   if(argstr(0, target, MAXPATH) < 0 || argstr(1, path, MAXPATH) < 0)
     return -1;
 
-  begin_op();
-//  if((ip = namei(target)) == 0){
-//    end_op();
-//    return -1;
-//  }
-//
-//  if(ip->type == T_DIR) {
-//    end_op();
-//    return -1;
-//  }
+  if((dp = nameiparent(path, name)) == 0)
+    panic("sys_symlink: nameiparent");
+  ilock(dp);
 
-  if((dp = nameiparent(path, name)) == 0) {
-    end_op();
+  if((ip = dirlookup(dp, name, 0)) != 0){
+    iput(ip);
+    iunlockput(dp);
     return -1;
   }
 
-  if((ip_new = ialloc(dp->dev, T_SYMLINK)) == 0)
+  begin_op();
+
+  if((ip = ialloc(dp->dev, T_SYMLINK)) == 0)
     panic("sys_symlink: ialloc");
 
-  ilock(ip_new);
-  ip_new->major = 0;
-  ip_new->minor = 0;
-  ip_new->nlink = 1;
-  if(writei(ip_new, 0, (uint64) target, 0, sizeof(target)) != sizeof(target))
+  ilock(ip);
+  ip->major = 0;
+  ip->minor = 0;
+  ip->nlink = 1;
+  if(writei(ip, 0, (uint64) target, 0, sizeof(target)) != sizeof(target))
     panic("sys_symlink: writei");
-  iupdate(ip_new);
-  iunlock(ip_new);
+  iupdate(ip);
 
-  ilock(dp);
-  if(dirlink(dp, name, ip_new->inum) < 0)
+  if(dirlink(dp, name, ip->inum) < 0)
     panic("sys_symlink: dirlink");
+
+  iunlockput(ip);
   iunlockput(dp);
 
   end_op();
