@@ -504,26 +504,28 @@ uint64
 sys_symlink(void)
 {
   char name[DIRSIZ], path[MAXPATH], target[MAXPATH];
-  struct inode *dp, *ip, *ip_new;
+  struct inode *dp, *ip_new;
 
   if(argstr(0, target, MAXPATH) < 0 || argstr(1, path, MAXPATH) < 0)
     return -1;
 
   begin_op();
-  if((ip = namei(target)) == 0){
+//  if((ip = namei(target)) == 0){
+//    end_op();
+//    return -1;
+//  }
+//
+//  if(ip->type == T_DIR) {
+//    end_op();
+//    return -1;
+//  }
+
+  if((dp = nameiparent(path, name)) == 0) {
     end_op();
     return -1;
   }
 
-  if(ip->type == T_DIR) {
-    end_op();
-    return -1;
-  }
-
-  if((dp = nameiparent(path, name)) == 0 || dp->dev != ip->dev)
-    goto symlinkbad;
-
-  if((ip_new = ialloc(ip->dev, T_SYMLINK)) == 0)
+  if((ip_new = ialloc(dp->dev, T_SYMLINK)) == 0)
     panic("sys_symlink: ialloc");
 
   ilock(ip_new);
@@ -540,17 +542,7 @@ sys_symlink(void)
     panic("sys_symlink: dirlink");
   iunlockput(dp);
 
-  iput(ip);
-
   end_op();
 
   return 0;
-
-symlinkbad:
-  ilock(ip);
-  ip->nlink--;
-  iupdate(ip);
-  iunlockput(ip);
-  end_op();
-  return -1;
 }
