@@ -286,7 +286,7 @@ create(char *path, short type, short major, short minor)
 uint64
 sys_open(void)
 {
-  char path[MAXPATH];
+  char path[MAXPATH], sympath[MAXPATH];
   int fd, omode;
   struct file *f;
   struct inode *ip;
@@ -320,6 +320,17 @@ sys_open(void)
     iunlockput(ip);
     end_op();
     return -1;
+  }
+
+  if(ip->type == T_SYMLINK && !(omode & O_NOFOLLOW)){
+    if(readi(ip, 0, (uint64) sympath, 0, sizeof(sympath)) != sizeof(sympath))
+      panic("sys_open: readi");
+    iunlock(ip);
+    if((ip = namei(sympath)) == 0){
+      end_op();
+      return -1;
+    }
+    ilock(ip);
   }
 
   if((f = filealloc()) == 0 || (fd = fdalloc(f)) < 0){
@@ -500,16 +511,16 @@ sys_symlink(void)
     return -1;
   }
 
-  ilock(ip);
+//  ilock(ip);
   if(ip->type == T_DIR) {
-    iunlockput(ip);
+//    iunlockput(ip);
     end_op();
     return -1;
   }
 
-  ip->nlink++;
-  iupdate(ip);
-  iunlock(ip);
+//  ip->nlink++;
+//  iupdate(ip);
+//  iunlock(ip);
 
   if((dp = nameiparent(path, name)) == 0 || dp->dev != ip->dev)
     goto symlinkbad;
