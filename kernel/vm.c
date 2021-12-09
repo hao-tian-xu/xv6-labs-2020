@@ -496,6 +496,40 @@ sys_mmap(void)
 uint64
 sys_munmap(void)
 {
+  uint64 addr;
+  int length;
+
+  struct proc *p = myproc();
+  struct vma *v = 0;
+  int i, n;
+
+  // get arguments
+  if (argaddr(0, &addr) < 0 || argint(1, &length) < 0)
+    return -1;
+
+  // find vma
+  for (i = 0; i < NVMA; i++) {
+    if (p->vma[i]) {
+      if (addr >= (uint64)p->vma[i]->addr && addr < ((uint64)p->vma[i]->addr + p->vma[i]->length)) {
+        v = p->vma[i];
+        break;
+      }
+    }
+  }
+  if (!v) return -1;
+
+  // page size round
+  n = (PGROUNDUP(addr + length) - PGROUNDDOWN(addr)) / PGSIZE;
+
+  // if SHARED write back
+  if (v->flags & MAP_SHARED)
+    filewrite(v->file, addr, length);
+
+  // unmap
+  uvmunmap(myproc()->pagetable, PGROUNDDOWN(addr), n, 1);
+  if (n >= PGROUNDUP(v->length) / PGSIZE)
+    fileclose(v->file);
+
   return 0;
 }
 
@@ -526,8 +560,10 @@ mmapalloc(pagetable_t pagetable, uint64 va)
 
   // alloc physical memory and read from file
   va = PGROUNDDOWN(va);
-  if ((n = (uint64) v->addr + v->length - va) > PGSIZE)
-    n = PGSIZE;
+  if ((n = (uint64) v->addr + v->length - va) <= PGSIZE) {
+    if (va - (uint64)v->addr + n > ip->size)
+      n = ip->size - (va - (uint64)v->addr);
+  } else n = PGSIZE;
   mem = kalloc();
   if (mem == 0) return -1;
   ilock(ip);
@@ -535,6 +571,7 @@ mmapalloc(pagetable_t pagetable, uint64 va)
     iunlock(ip);
     return -1;
   }
+  memset(mem + n, 0, PGSIZE - n);
   iunlock(ip);
 
   // alloc pte
