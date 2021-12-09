@@ -106,3 +106,12 @@ struct proc {
 
   struct vma *vma[NVMA];
 };
+
+struct vma{
+  void *addr;
+  int length;
+  int prot;
+  int flags;
+  int fd;
+  struct file *file;
+};

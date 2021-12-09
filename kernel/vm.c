@@ -7,8 +7,8 @@
 #include "fs.h"
 
 #include "spinlock.h"
-#include "sleeplock.h"
 #include "proc.h"
+#include "sleeplock.h"
 #include "file.h"
 #include "fcntl.h"
 
@@ -20,15 +20,6 @@ pagetable_t kernel_pagetable;
 extern char etext[];  // kernel.ld sets this to end of kernel code.
 
 extern char trampoline[]; // trampoline.S
-
-struct vma{
-  void *addr;
-  int length;
-  int prot;
-  int flags;
-  int fd;
-  struct file *file;
-};
 
 struct vma vma[NVMA];
 

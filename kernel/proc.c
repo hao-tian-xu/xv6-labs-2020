@@ -6,6 +6,8 @@
 #include "proc.h"
 #include "defs.h"
 
+#include "fcntl.h"
+
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
@@ -340,6 +342,7 @@ void
 exit(int status)
 {
   struct proc *p = myproc();
+  struct vma *v;
 
   if(p == initproc)
     panic("init exiting");
@@ -350,6 +353,17 @@ exit(int status)
       struct file *f = p->ofile[fd];
       fileclose(f);
       p->ofile[fd] = 0;
+    }
+  }
+
+  // unmap all mapped files
+  for (int i = 0; i < NVMA; i++) {
+    if (p->vma[i]) {
+      v = p->vma[i];
+      if (v->flags & MAP_SHARED)
+        filewrite(v->file, (uint64) v->addr, v->length);
+      uvmunmap(p->pagetable, (uint64) v->addr, PGROUNDUP(v->length)/PGSIZE, 1);
+      fileclose(v->file);
     }
   }
 
