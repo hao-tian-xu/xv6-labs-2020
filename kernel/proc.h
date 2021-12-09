@@ -113,5 +113,6 @@ struct vma{
   int prot;
   int flags;
   int fd;
+  int alloc;
   struct file *file;
 };

@@ -358,7 +358,7 @@ exit(int status)
 
   // unmap all mapped files
   for (int i = 0; i < NVMA; i++) {
-    if (p->vma[i]) {
+    if (p->vma[i] && p->vma[i]->alloc) {
       v = p->vma[i];
       if (v->flags & MAP_SHARED)
         filewrite(v->file, (uint64) v->addr, v->length);

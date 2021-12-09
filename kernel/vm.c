@@ -453,6 +453,9 @@ sys_mmap(void)
     return -1;
   file = p->ofile[fd];
 
+  if (!file->writable && (prot & PROT_WRITE) && (flags & MAP_SHARED))
+    return -1;
+
   // find an unused region in the process's address space, and increase process's size
   addr = (void*) PGROUNDUP(p->sz);
   p->sz += PGROUNDUP(length);
@@ -470,6 +473,7 @@ sys_mmap(void)
     v->flags = flags;
     v->fd = fd;
     v->file = file;
+    v->alloc = 0;
     for (i = 0; i < NVMA; i++) {
       if (p->vma[i] == 0) {
         p->vma[i] = v;
@@ -509,6 +513,9 @@ sys_munmap(void)
   }
   if (!v) return -1;
 
+  if (walkaddr(p->pagetable, addr) == 0)
+    return 0;
+
   // page size round
   n = (PGROUNDUP(addr + length) - PGROUNDDOWN(addr)) / PGSIZE;
 
@@ -518,8 +525,10 @@ sys_munmap(void)
 
   // unmap
   uvmunmap(myproc()->pagetable, PGROUNDDOWN(addr), n, 1);
-  if (n >= PGROUNDUP(v->length) / PGSIZE)
+  if (n >= PGROUNDUP(v->length) / PGSIZE) {
     fileclose(v->file);
+    p->vma[i] = 0;
+  }
 
   return 0;
 }
@@ -533,7 +542,7 @@ mmapalloc(pagetable_t pagetable, uint64 va)
   pte_t *pte;
   char *mem;
   uint flags = PTE_U | PTE_V;
-  int i, n;
+  int i, n, realsz;
 
   if (va >= p->sz) return -1;
 
@@ -550,19 +559,23 @@ mmapalloc(pagetable_t pagetable, uint64 va)
   ip = v->file->ip;
 
   // alloc physical memory and read from file
+  if ((realsz = p->sz) > ip->size)
+    realsz = ip->size;
+
   va = PGROUNDDOWN(va);
-  if ((n = (uint64) v->addr + v->length - va) <= PGSIZE) {
-    if (va - (uint64)v->addr + n > ip->size)
-      n = ip->size - (va - (uint64)v->addr);
-  } else n = PGSIZE;
+
+  if ((n = (uint64) v->addr + realsz - va) > PGSIZE)
+    n = PGSIZE;
   mem = kalloc();
   if (mem == 0) return -1;
   ilock(ip);
-  if (readi(ip, 0, (uint64) mem, va - (uint64)v->addr, n) != n) {
-    iunlock(ip);
-    return -1;
-  }
-  memset(mem + n, 0, PGSIZE - n);
+  if (n > 0)
+    if (readi(ip, 0, (uint64) mem, va - (uint64) v->addr, n) != n) {
+      iunlock(ip);
+      return -1;
+    }
+  if (n < PGSIZE)
+    memset(mem + n, 0, PGSIZE - n);
   iunlock(ip);
 
   // alloc pte
@@ -571,6 +584,8 @@ mmapalloc(pagetable_t pagetable, uint64 va)
   if (v->prot & PROT_READ) flags |= PTE_R;
   if (v->prot & PROT_WRITE) flags |= PTE_W;
   *pte = PA2PTE((uint64)mem) | flags;
+
+  v->alloc = 1;
 
   return 0;
 }
