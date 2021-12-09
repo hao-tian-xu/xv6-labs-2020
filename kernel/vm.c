@@ -6,6 +6,11 @@
 #include "defs.h"
 #include "fs.h"
 
+#include "spinlock.h"
+#include "sleeplock.h"
+#include "proc.h"
+#include "file.h"
+
 /*
  * the kernel's page table.
  */
@@ -14,6 +19,17 @@ pagetable_t kernel_pagetable;
 extern char etext[];  // kernel.ld sets this to end of kernel code.
 
 extern char trampoline[]; // trampoline.S
+
+struct vma{
+  void *addr;
+  int length;
+  int prot;
+  int flags;
+  int fd;
+  struct file *file;
+};
+
+struct vma vma[NVMA];
 
 // Make a direct-map page table for the kernel.
 pagetable_t
@@ -428,4 +444,62 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
   } else {
     return -1;
   }
+}
+
+uint64
+sys_mmap(void)
+{
+  int length, prot, flags, fd, i;
+  struct file *file;
+  struct proc *p = myproc();
+  void *addr;
+  struct vma *v = 0;
+
+  // get arguments
+  if (argint(1, &length) < 0 || argint(2, &prot) < 0 ||
+  argint(3, &flags) < 0 || argint(4, &fd) < 0)
+    return -1;
+  file = p->ofile[fd];
+
+  // find an unused region in the process's address space
+  addr = (void*) p->sz;
+  // memo: not to map yet
+   /*if (growproc(length) < 0)
+     return -1;*/
+
+  // allocate a VMA and add it to the process
+  for (i = 0; i < NVMA; i++) {
+    if (vma[i].addr == 0) {
+      v = &vma[i];
+    }
+  }
+  if (v) {
+    v->addr = addr;
+    v->length = length;
+    v->prot = prot;
+    v->flags = flags;
+    v->fd = fd;
+    v->file = file;
+    for (i = 0; i < NVMA; i++) {
+      if (p->vma[i] == 0) {
+        p->vma[i] = v;
+        break;
+      }
+    }
+  } else return -1;
+
+  // increase the file's reference count
+  filedup(file);
+
+
+
+
+
+  return (uint64) addr;
+}
+
+uint64
+sys_munmap(void)
+{
+  return 0;
 }
