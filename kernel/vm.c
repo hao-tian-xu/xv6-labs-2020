@@ -10,6 +10,7 @@
 #include "sleeplock.h"
 #include "proc.h"
 #include "file.h"
+#include "fcntl.h"
 
 /*
  * the kernel's page table.
@@ -461,11 +462,9 @@ sys_mmap(void)
     return -1;
   file = p->ofile[fd];
 
-  // find an unused region in the process's address space
-  addr = (void*) p->sz;
-  // memo: not to map yet
-   /*if (growproc(length) < 0)
-     return -1;*/
+  // find an unused region in the process's address space, and increase process's size
+  addr = (void*) PGROUNDUP(p->sz);
+  p->sz += PGROUNDUP(length);
 
   // allocate a VMA and add it to the process
   for (i = 0; i < NVMA; i++) {
@@ -491,15 +490,59 @@ sys_mmap(void)
   // increase the file's reference count
   filedup(file);
 
-
-
-
-
   return (uint64) addr;
 }
 
 uint64
 sys_munmap(void)
 {
+  return 0;
+}
+
+int
+mmapalloc(pagetable_t pagetable, uint64 va)
+{
+  struct vma *v = 0;
+  struct proc *p = myproc();
+  struct inode *ip;
+  pte_t *pte;
+  char *mem;
+  uint flags = PTE_U | PTE_V;
+  int i, n;
+
+  if (va >= p->sz) return -1;
+
+  // find vma
+  for (i = 0; i < NVMA; i++) {
+    if (p->vma[i]) {
+      if (va >= (uint64)p->vma[i]->addr && va < ((uint64)p->vma[i]->addr + p->vma[i]->length)) {
+        v = p->vma[i];
+        break;
+      }
+    }
+  }
+  if (!v) return -1;
+  ip = v->file->ip;
+
+  // alloc physical memory and read from file
+  va = PGROUNDDOWN(va);
+  if ((n = (uint64) v->addr + v->length - va) > PGSIZE)
+    n = PGSIZE;
+  mem = kalloc();
+  if (mem == 0) return -1;
+  ilock(ip);
+  if (readi(ip, 0, (uint64) mem, va - (uint64)v->addr, n) != n) {
+    iunlock(ip);
+    return -1;
+  }
+  iunlock(ip);
+
+  // alloc pte
+  if ((pte = walk(pagetable, va, 1)) == 0) return -1;
+  if (v->prot & PROT_EXEC) flags |= PTE_X;
+  if (v->prot & PROT_READ) flags |= PTE_R;
+  if (v->prot & PROT_WRITE) flags |= PTE_W;
+  *pte = PA2PTE((uint64)mem) | flags;
+
   return 0;
 }
