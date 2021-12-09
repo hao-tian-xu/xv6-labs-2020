@@ -175,6 +175,7 @@ UPROGS=\
 	$U/_grind\
 	$U/_wc\
 	$U/_zombie\
+	$U/_mmaptest\
 
 
 
@@ -253,7 +254,9 @@ clean:
 	$U/initcode $U/initcode.out $K/kernel fs.img \
 	mkfs/mkfs .gdbinit \
         $U/usys.S \
-	$(UPROGS)
+	$(UPROGS) \
+	*/*[2-9]* \
+	.*[2-9] *[2-9]*
 
 # try to generate a unique GDB port
 GDBPORT = $(shell expr `id -u` % 5000 + 25000)
