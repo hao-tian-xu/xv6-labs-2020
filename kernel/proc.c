@@ -298,6 +298,13 @@ fork(void)
       np->ofile[i] = filedup(p->ofile[i]);
   np->cwd = idup(p->cwd);
 
+  // increment reference counts on mmaped file descriptors.
+  for (i = 0; i < NVMA; i++)
+    if (p->vma[i]) {
+      np->vma[i] = p->vma[i];
+      filedup(p->vma[i]->file);
+    }
+
   safestrcpy(np->name, p->name, sizeof(p->name));
 
   pid = np->pid;

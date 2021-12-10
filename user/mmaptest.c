@@ -38,7 +38,6 @@ void
 _v1(char *p)
 {
   int i;
-//  printf("_v1 starts\n");
   for (i = 0; i < PGSIZE*2; i++) {
     if (i < PGSIZE + (PGSIZE/2)) {
       if (p[i] != 'A') {
@@ -51,10 +50,7 @@ _v1(char *p)
         err("v1 mismatch (2)");
       }
     }
-//    if ((i%1024) == 0)
-//      printf("_v1 %d\n", i);
   }
-//  printf("_v1 finishes\n");
 }
 
 //
