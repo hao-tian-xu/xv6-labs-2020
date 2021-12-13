@@ -2,6 +2,7 @@
 #include "kernel/net.h"
 #include "kernel/stat.h"
 #include "user/user.h"
+#include "user.h"
 
 //
 // send a UDP packet to the localhost (outside of qemu),

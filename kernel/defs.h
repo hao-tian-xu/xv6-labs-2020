@@ -8,6 +8,9 @@ struct spinlock;
 struct sleeplock;
 struct stat;
 struct superblock;
+
+#define LAB_NET 1
+
 #ifdef LAB_NET
 struct mbuf;
 struct sock;

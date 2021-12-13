@@ -5,6 +5,10 @@
 #define MBUF_SIZE              2048
 #define MBUF_DEFAULT_HEADROOM  128
 
+/* memo: Because bursts of packets might arrive faster
+ * than the driver can process them, e1000_init() provides
+ * the E1000 with multiple buffers into which the E1000
+ * can write packets.*/
 struct mbuf {
   struct mbuf  *next; // the next mbuf in the chain
   char         *head; // the current start position of the buffer

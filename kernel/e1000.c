@@ -12,6 +12,10 @@
 static struct tx_desc tx_ring[TX_RING_SIZE] __attribute__((aligned(16)));
 static struct mbuf *tx_mbufs[TX_RING_SIZE];
 
+/* memo: The array of descriptors is called the receive ring,
+ * or receive queue. It's a circular ring in the sense that
+ * when the card or driver reaches the end of the array,
+ * it wraps back to the beginning.*/
 #define RX_RING_SIZE 16
 static struct rx_desc rx_ring[RX_RING_SIZE] __attribute__((aligned(16)));
 static struct mbuf *rx_mbufs[RX_RING_SIZE];
@@ -102,7 +106,34 @@ e1000_transmit(struct mbuf *m)
   // the TX descriptor ring so that the e1000 sends it. Stash
   // a pointer so that it can be freed after sending.
   //
-  
+  printf("hi receiver\n");
+
+  uint32 i;
+  struct tx_desc *d;
+  struct mbuf *m0;
+
+  // tx ring tail
+  i = regs[E1000_TDT];
+
+  // if the ring is overflowing
+  d = &tx_ring[i];
+  if (!(d->status & E1000_TXD_STAT_DD))
+    return -1;
+
+  // free the last m0
+  m0 = tx_mbufs[i];
+  if (m0)
+    mbuffree(m0);
+
+  // fill in the descriptor
+  d->addr = (uint64) m0->head;
+  d->length = m0->len;
+  d->cmd = E1000_TXD_CMD_RS;
+  tx_mbufs[i] = m;
+
+  // update the ring position
+  regs[E1000_TDT] = (i + 1) % TX_RING_SIZE;
+
   return 0;
 }
 
@@ -115,6 +146,7 @@ e1000_recv(void)
   // Check for packets that have arrived from the e1000
   // Create and deliver an mbuf for each packet (using net_rx()).
   //
+  printf("hi transmitter\n");
 }
 
 void
