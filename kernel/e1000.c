@@ -126,9 +126,9 @@ e1000_transmit(struct mbuf *m)
     mbuffree(m0);
 
   // fill in the descriptor
-  d->addr = (uint64) m0->head;
-  d->length = m0->len;
-  d->cmd = E1000_TXD_CMD_RS;
+  d->addr = (uint64) m->head;
+  d->length = m->len;
+  d->cmd = E1000_TXD_CMD_RS | E1000_TXD_CMD_EOP;
   tx_mbufs[i] = m;
 
   // update the ring position
@@ -147,6 +147,7 @@ e1000_recv(void)
   // Create and deliver an mbuf for each packet (using net_rx()).
   //
   printf("hi transmitter\n");
+
 }
 
 void
