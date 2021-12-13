@@ -24,6 +24,7 @@ static struct mbuf *rx_mbufs[RX_RING_SIZE];
 static volatile uint32 *regs;
 
 struct spinlock e1000_lock;
+//struct spinlock e1000_lock2;
 
 // called by pci_init().
 // xregs is the memory address at which the
@@ -34,6 +35,7 @@ e1000_init(uint32 *xregs)
   int i;
 
   initlock(&e1000_lock, "e1000");
+//  initlock(&e1000_lock2, "e10002");
 
   regs = xregs;
 
@@ -106,19 +108,21 @@ e1000_transmit(struct mbuf *m)
   // the TX descriptor ring so that the e1000 sends it. Stash
   // a pointer so that it can be freed after sending.
   //
-  printf("hi receiver\n");
 
   uint32 i;
   struct tx_desc *d;
   struct mbuf *m0;
 
-  // tx ring tail
+  acquire(&e1000_lock);
+  // tx ring index
   i = regs[E1000_TDT];
 
   // if the ring is overflowing
   d = &tx_ring[i];
-  if (!(d->status & E1000_TXD_STAT_DD))
+  if (!(d->status & E1000_TXD_STAT_DD)) {
+    release(&e1000_lock);
     return -1;
+  }
 
   // free the last m0
   m0 = tx_mbufs[i];
@@ -126,6 +130,7 @@ e1000_transmit(struct mbuf *m)
     mbuffree(m0);
 
   // fill in the descriptor
+//  memset(d, 0, sizeof(*d));
   d->addr = (uint64) m->head;
   d->length = m->len;
   d->cmd = E1000_TXD_CMD_RS | E1000_TXD_CMD_EOP;
@@ -133,6 +138,7 @@ e1000_transmit(struct mbuf *m)
 
   // update the ring position
   regs[E1000_TDT] = (i + 1) % TX_RING_SIZE;
+  release(&e1000_lock);
 
   return 0;
 }
@@ -146,8 +152,38 @@ e1000_recv(void)
   // Check for packets that have arrived from the e1000
   // Create and deliver an mbuf for each packet (using net_rx()).
   //
-  printf("hi transmitter\n");
 
+  uint32 i;
+  struct rx_desc *d;
+  struct mbuf *m;
+
+  while (1) {
+    // rx ring index
+    i = (regs[E1000_RDT] + 1) % RX_RING_SIZE;
+
+    // if a new packet is available
+    d = &rx_ring[i];
+    if (!(d->status & E1000_RXD_STAT_DD))
+      break;
+
+    // update the mbuf
+    m = rx_mbufs[i];
+    m->len = d->length;
+
+    // deliver the mbuf to the network stack
+    net_rx(m);
+
+    // allocate a new mbuf
+    m = mbufalloc(0);
+    if (!m)
+      panic("e1000_recv: mbufalloc");
+    rx_mbufs[i] = m;
+    d->addr = (uint64) m->head;
+    d->status = 0;
+
+    // update the E1000_RDT register
+    regs[E1000_RDT] = i;
+  }
 }
 
 void
