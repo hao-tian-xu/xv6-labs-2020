@@ -1,4 +1,4 @@
-# Xv6 Modification and Enhancement
+# Xv6 Operating System
 
 (Labs of MIT 6.828/6.S081: Operating System Engineering)
 
